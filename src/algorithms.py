@@ -1,5 +1,6 @@
 from collections import deque
 import json
+import utils
 
 # For testing purposes - load the airline data
 with open('../data/airline_routes.json', 'r') as f:
