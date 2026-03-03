@@ -1,5 +1,7 @@
-<h2>Project Directory</h2>
-<code><p>flight-routing-project/
+# Project Directory
+
+```text
+flight-routing-project/
 ├── data/
 │   └── airline_routes.json   # Your Jonty dataset
 ├── src/
@@ -8,63 +10,91 @@
 │   ├── models.py             # Airport and Flight classes
 │   └── utils.py              # Haversine distance calculator
 ├── app.py                    # Streamlit/Folium UI
-└── requirements.txt</p></code>
-<h2>HOW TO USE THIS REPO?</h2>
-<b>Clone the repo with HTTPs:</b>
-<br>
-<code>git clone https://github.com/itsjustmdawg/csc1108-flight-map-routing.git</code>
-<br>
-<b>Or with SSH:</b>
-<br>
-<code>git clone git@github.com:itsjustmdawg/csc1108-flight-map-routing.git</code>
-<br>
-<p>
-  2. Create your personal branch to work on (you will auto switch to that branch to work on it)
-  <br>
-  <code>git checkout -b [branch name]</code>
-</p>
-<br>
-<p>
-  3. When you add code, your PyCharm will highlight files with code changes in red. You can add them to a list that you want to commit later with:
-  <br>
-  <code>git add .</code>
-  <br>
-  *the full stop means stage everything to prepare for commit, you can just git add [filename] also if you want to add 1 file*
-</p>
-<p>
-  4.  When you done with the changes, you want to commit them with a message so everyone know what changes u made:
-  <br>
-  <code>git commit -m "example commit message with no full stop, and convention is to use present tense"</code>
-  <br>
-  Example commit: <code>git commit -m "Add airline classes to folder"</code> quotes are important
-</p>
+└── requirements.txt
+```
 
-<p>
-  5. When you want to share you saved code with everyone you need to push your code:
-  <br>
-  <code>git push</code>
-</p>
+## Prerequisites
 
-<p>
-  5a.  If you just created that branch and it doesn't exists on github, use this push command instead
-  <br>
-  <code>git push --set-upstream [branch name that can be different from your local branch name]</code>
-</p>
+1. Install **Python 3.10+** and make sure `python` and `pip` are available in your terminal.
+2. Install the **pre-release** version of `pythonnet`:
 
-<p>
-  6. If you want to receive updates from a branch, you can pull the changes from the internet
-  <br>
-  <code>git checkout [GitHub branch name that you want to pull from]</code>
-  <br>
-  <code>git pull</code> To download the changes into your pc
-  <br>
-  <code>git checkout -b [my new branch name]</code> good practice to recreate a new branch to get your new updates
-  <br>
-</p>
-<hr>
-<H2>TIPS</H2>
-<ol>
-  <li> Your commits should be extremely tiny features, like even 3-4 lines of code is enough for a commit</li>
-  <li> Your branches should be small also, don't need to make it to something so big like, actions  then inside got like 50+ commits. Break it down into multiple branches like move-action, eat-action, fight-action each with 10-20 commits</li>
-</ol>
-<hr>
+  ```bash
+  pip install --pre pythonnet
+  ```
+
+3. Install **pywebview**:
+
+  ```bash
+  pip install pywebview
+  ```
+
+  If your system uses `pip3`, use:
+
+  ```bash
+  pip3 install pywebview
+  ```
+
+## How to Use This Repo
+
+1. Clone the repo using HTTPS:
+
+  ```bash
+  git clone https://github.com/itsjustmdawg/csc1108-flight-map-routing.git
+  ```
+
+  Or clone using SSH:
+
+  ```bash
+  git clone git@github.com:itsjustmdawg/csc1108-flight-map-routing.git
+  ```
+
+2. Create your personal branch to work on:
+
+  ```bash
+  git checkout -b [branch-name]
+  ```
+
+3. Stage your changes:
+
+  ```bash
+  git add .
+  ```
+
+  You can also stage a single file with `git add [filename]`.
+
+4. Commit your changes with a clear message:
+
+  ```bash
+  git commit -m "example commit message in present tense"
+  ```
+
+  Example:
+
+  ```bash
+  git commit -m "Add airline classes to folder"
+  ```
+
+5. Push your branch:
+
+  ```bash
+  git push
+  ```
+
+6. If this is a new branch that doesn't exist on GitHub yet, push with upstream:
+
+  ```bash
+  git push --set-upstream origin [branch-name]
+  ```
+
+7. To receive updates from another branch:
+
+  ```bash
+  git checkout [branch-to-pull]
+  git pull
+  git checkout -b [my-new-branch-name]
+  ```
+
+## Tips
+
+1. Keep commits small and focused. Even small changes (3-4 lines) can be a good commit.
+2. Keep branches focused on one task. Break large work into smaller branches where possible.
