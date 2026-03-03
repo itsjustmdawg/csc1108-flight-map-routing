@@ -1,20 +1,14 @@
 <h2>Project Directory</h2>
 <code><p>flight-routing-project/
-├── data/                   # Raw and processed datasets
-│   ├── airports.csv        # OpenFlights airport data
-│   ├── routes.csv          # OpenFlights route data
-│   └── cleaned_data.json   # Pre-processed graph for faster loading
-├── src/                    # Source code
-│   ├── data_loader.py      # CSV parsing and Graph building
-│   ├── algorithms.py       # Dijkstra, A*, and BFS implementations
-│   ├── models.py           # Class definitions (Airport, Route, Graph)
-│   └── utils.py            # Helper functions (Haversine formula, etc.)
-├── app.py                  # Main entry point (Streamlit/UI)
-├── tests/                  # Unit tests for algorithms
-│   └── test_routes.py
-├── requirements.txt        # List of Python libraries (pandas, folium, streamlit)
-├── .gitignore              # Files to exclude from Git (e.g., __pycache__)
-└── README.md               # Setup instructions and project overview</p></code>
+├── data/
+│   └── airline_routes.json   # Your Jonty dataset
+├── src/
+│   ├── data_loader.py        # Logic to open JSON and convert strings to floats
+│   ├── algorithms.py         # A* and BFS logic
+│   ├── models.py             # Airport and Flight classes
+│   └── utils.py              # Haversine distance calculator
+├── app.py                    # Streamlit/Folium UI
+└── requirements.txt</p></code>
 <h2>HOW TO USE THIS REPO?</h2>
 <b>Clone the repo with HTTPs:</b>
 <br>
@@ -27,7 +21,7 @@
 <p>
   2. Create your personal branch to work on (you will auto switch to that branch to work on it)
   <br>
-  <code>git checkout -b  [branch name]</code>
+  <code>git checkout -b [branch name]</code>
 </p>
 <br>
 <p>
