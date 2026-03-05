@@ -50,7 +50,7 @@
 
                 <div id="swap">
                     <span class="swap-divider">---------</span>
-                    <button id="swap-button">⇄ SWAP</button>
+                    <button id="swap-button" class="action-button action-button-compact" type="button">⇄ SWAP</button>
                     <span class="swap-divider">---------</span>
                 </div>
 
@@ -71,29 +71,29 @@
             <div id="filter">
                 <div id="filter-options">
                     <div class="filter-col">
-                        <div class="filter-option">
+                        <button class="filter-option active" type="button" data-filter="shortest_distance" aria-pressed="true">
                             <p>SHORTEST</p>
                             <p>DISTANCE</p>
-                        </div>
-                        <div class="filter-option">
+                        </button>
+                        <button class="filter-option" type="button" data-filter="lowest_price" aria-pressed="false">
                             <p>LOWEST</p>
                             <p>PRICE</p>
-                        </div>
+                        </button>
                     </div>
                     <div class="filter-col">
-                        <div class="filter-option">
+                        <button class="filter-option" type="button" data-filter="fastest_time" aria-pressed="false">
                             <p>FASTEST</p>
                             <p>TIME</p>
-                        </div>
-                        <div class="filter-option">
+                        </button>
+                        <button class="filter-option" type="button" data-filter="fewest_stops" aria-pressed="false">
                             <p>FEWEST</p>
-                            <p>STOPS (BPS)</p>
-                        </div>
+                            <p>STOPS</p>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <button>Find Routes</button>
+            <button id="find-routes-button" class="action-button" type="button">Find Routes</button>
         </div>
 
         <div class="map-area">

@@ -73,3 +73,20 @@ window.addEventListener("load", () => {
     setTimeout(animateBoard, 300);
     setInterval(animateBoard, 6000);
 });
+
+// Filter option buttons: keep a single active option at a time.
+const filterButtons = document.querySelectorAll(".filter-option");
+let selectedFilter = "shortest_distance";
+
+filterButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+        filterButtons.forEach((btn) => {
+            btn.classList.remove("active");
+            btn.setAttribute("aria-pressed", "false");
+        });
+
+        button.classList.add("active");
+        button.setAttribute("aria-pressed", "true");
+        selectedFilter = button.dataset.filter;
+    });
+});

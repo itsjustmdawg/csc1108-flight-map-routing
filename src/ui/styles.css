@@ -224,8 +224,7 @@ header {
 }
 
 input,
-select,
-button {
+select {
     width: 100%;
     padding: 10px;
     margin-top: 10px;
@@ -234,15 +233,42 @@ button {
     font-family: var(--font-default);
 }
 
-button {
-    background: #2563eb;
-    color: white;
-    cursor: pointer;
+.action-button {
+    width: 100%;
     margin-top: 15px;
+    padding: 10px 12px;
+    border: 1px solid #0284c7;
+    border-radius: 0;
+    background-color: #ffffff;
+    color: #0284c7;
+    cursor: pointer;
+    font-family: var(--font-title);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
-button:hover {
-    background: #1d4ed8;
+.action-button:hover {
+    background-color: #dbeafe;
+}
+
+.action-button:focus-visible {
+    outline: 2px solid #0ea5e9;
+    outline-offset: 2px;
+}
+
+.action-button:active {
+    background-color: #0284c7;
+    color: #ffffff;
+}
+
+.action-button-compact {
+    width: 110px;
+    margin: 10px 0;
+    padding: 5px 0;
+    height: 26px;
+    font-size: 10px;
 }
 
 .map-area {
@@ -329,19 +355,6 @@ footer {
     text-align: center;
 }
 
-#swap-button {
-    margin: 10px 0;
-    padding: 5px 0;
-    border: 1px solid #0284c7;
-    cursor: pointer;
-    border-radius: 0;
-    background-color: #e2e8f0;
-    width: 100px;
-    height: 25px;
-    font-family: var(--font-default);
-    color: #0284c7;
-}
-
 .swap-divider {
     color: #0284c7;
 }
@@ -370,14 +383,37 @@ footer {
     align-items: center;
     text-align: center;
     margin-bottom: 10px;
+    background-color: #ffffff;
+    color: #0284c7;
+    display: block;
+    padding: 8px 6px;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .filter-option:last-child {
     margin-bottom: 0;
 }
 
+.filter-option:hover {
+    background-color: #dbeafe;
+}
+
+.filter-option.active {
+    background-color: #0284c7;
+    color: #ffffff;
+    box-shadow: 0 0 0 1px #0284c7 inset;
+}
+
+.filter-option:focus-visible {
+    outline: 2px solid #0ea5e9;
+    outline-offset: 2px;
+}
+
 .filter-option p {
     padding: 0;
     margin: 0;
     letter-spacing: 2px;
+    pointer-events: none;
 }
