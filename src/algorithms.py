@@ -2,9 +2,6 @@ from collections import deque
 import json
 import utils
 
-# For testing purposes - load the airline data
-with open('../data/airline_routes.json', 'r') as f:
-    flight_data = json.load(f)
 
 def find_route_least_connections(graph, start_iata, end_iata):
     """
@@ -50,9 +47,3 @@ def find_route_least_connections(graph, start_iata, end_iata):
 
     # Return None if the queue empties and no path is found
     return None
-
-# Sample test cases
-print(find_route_least_connections(flight_data, "AAA", "FAC"))
-print(find_route_least_connections(flight_data, "AAK", "ABF"))
-print(find_route_least_connections(flight_data, "AAX", "BOG"))
-print(find_route_least_connections(flight_data, "ABC", "12"))
