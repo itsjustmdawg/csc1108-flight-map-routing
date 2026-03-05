@@ -9,6 +9,18 @@
 │   └── utils.py              # Haversine distance calculator
 ├── app.py                    # Streamlit/Folium UI
 └── requirements.txt</p></code>
+<h2>PREREQUISITES</h2>
+<p>
+  1. Install <b>Python 3.10+</b> and make sure <code>python</code> and <code>pip</code> are available in your terminal.
+  <br>
+  2. Install <b>pywebview</b>:
+  <br>
+  <code>pip install pywebview</code>
+  <br>
+  If your system uses <code>pip3</code>, use:
+  <br>
+  <code>pip3 install pywebview</code>
+</p>
 <h2>HOW TO USE THIS REPO?</h2>
 <b>Clone the repo with HTTPs:</b>
 <br>

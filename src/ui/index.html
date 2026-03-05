@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>SkyPath - Static Version</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <header>
+        <div class="logo">
+            <span class="logo-plane">✈</span>
+            <div class="solari-board" id="solari-logo"></div>
+        </div>
+        <div class="stats">
+            <div>
+                <span>-</span>
+                <p>AIRPORTS</p>
+            </div>
+            <div>
+                <span>-</span>
+                <p>ROUTES</p>
+            </div>
+            <div>
+                <span>READY</span>
+                <p>ALGORITHM</p>
+            </div>
+            <div>
+                <button id="status-button"></button>
+            </div>
+        </div>
+    </header>
+
+    <div class="app">
+        <div class="sidebar">
+            <p class="section-label">// ROUTE SEARCH</p>
+
+            <div id="location-search">
+                <div class="field-wrapper" id="origin-wrapper">
+                    <label for="origin">ORIGIN</label>
+                    <div class="field-input-box" onclick="this.querySelector('input').focus();">
+                        <input type="text" id="origin" placeholder="Search IATA or city..." />
+                        <span class="dropdown-arrow">▼</span>
+                        <datalist id="origin-list">
+                            <option value=""></option>
+                        </datalist>
+                    </div>
+                </div>
+
+                <div id="swap">
+                    <span class="swap-divider">---------</span>
+                    <button id="swap-button">⇄ SWAP</button>
+                    <span class="swap-divider">---------</span>
+                </div>
+
+                <div class="field-wrapper" id="destination-wrapper">
+                    <label for="destination">DESTINATION</label>
+                    <div class="field-input-box" onclick="this.querySelector('input').focus();">
+                        <input type="text" id="destination" placeholder="Search IATA or city..." />
+                        <span class="dropdown-arrow">▼</span>
+                        <datalist id="destination-list">
+                            <option value=""></option>
+                        </datalist>
+                    </div>
+                </div>
+            </div>
+
+            <p class="section-label">// OPTIMISE BY</p>
+
+            <div id="filter">
+                <div id="filter-options">
+                    <div class="filter-col">
+                        <div class="filter-option">
+                            <p>SHORTEST</p>
+                            <p>DISTANCE</p>
+                        </div>
+                        <div class="filter-option">
+                            <p>LOWEST</p>
+                            <p>PRICE</p>
+                        </div>
+                    </div>
+                    <div class="filter-col">
+                        <div class="filter-option">
+                            <p>FASTEST</p>
+                            <p>TIME</p>
+                        </div>
+                        <div class="filter-option">
+                            <p>FEWEST</p>
+                            <p>STOPS (BPS)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button>Find Routes</button>
+        </div>
+
+        <div class="map-area">
+            Map Display Area (Static Version)
+        </div>
+    </div>
+
+    <footer>
+        CSC1108 · DSA Project
+    </footer>
+
+    <script src="script.js"></script>
+
+</html>
