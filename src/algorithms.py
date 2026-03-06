@@ -1,28 +1,30 @@
 from collections import deque
-import json
-import utils
 import heapq    # used by Dijkstra's to implement a priority queue for selecting the smallest distance node
 
-def find_route_least_connections(graph, start_iata, end_iata):
+from src.adt import Route
+
+# BFS
+def find_route_least_connections(graph, start_iata, end_iata) -> Route:
+
     """
     Finds the route with the fewest layovers between two airports using BFS.
-    
+
     Parameters:
-    graph (dict): The parsed airline routes adjacency list.
-    start_iata (str): The 3-letter IATA code of the starting airport.
-    end_iata (str): The 3-letter IATA code of the destination airport.
-    
+    graph       (dict): The parsed airline routes adjacency list.
+    start_iata  (str):  The 3-letter IATA code of the starting airport.
+    end_iata    (str):  The 3-letter IATA code of the destination airport.
+
     Returns:
     list: A list of IATA codes representing the shortest path, or None if no path exists.
     """
-    
+
     # Validate if iata is in graph dataset
     if start_iata not in graph or end_iata not in graph:
         return None
 
     # Initialize a queue for BFS that stores tuples containing the current airport and the path taken to reach it.
     queue = deque([(start_iata, [start_iata])])
-    
+
     # Set to keep track of visited airports to prevent infinite loops
     visited = {start_iata}
 
@@ -52,7 +54,7 @@ def find_route_least_connections(graph, start_iata, end_iata):
 def _reconstruct_path(prev: dict, start: str, end: str):
     """
     Reconstructs the route from start to end using the prev dictionary.
-    prev[x] stores the airport we came from to reach x with the best known cost.
+    Prev[x] stores the airport we came from to reach x with the best known cost.
     We backtracked from end to start, then reverse to get the start to end.
     """
     path = [] 
@@ -67,25 +69,26 @@ def _reconstruct_path(prev: dict, start: str, end: str):
     # If reconstruction doesn't start at the start node, no valid path works
     if end not in prev and end != start:
         return None
-    
+
     return path
 
-def find_route_dijkstra(graph, start_iata, end_iata, mode="shortest"):
+# Djikstra
+def find_route_dijkstra(graph, start_iata, end_iata, mode="shortest") -> Route:
     """
-    Find the optimal route between two airports using Dijktra's algorithm
+    Find the optimal route between two airports using Dijkstra's algorithm
 
     Parameters:
-    graph (dict): The parsed airline routes adjacency list.
-    start_iata (str): The 3-letter IATA code of the starting airport.
-    end_iata (str): The 3-letter IATA code of the destination airport.
-    mode (str): Determines the weight type ("shortest" for km, "fastest" for minutes)
+    graph       (dict): The parsed airline routes adjacency list.
+    start_iata  (str):  The 3-letter IATA code of the starting airport.
+    end_iata    (str):  The 3-letter IATA code of the destination airport.
+    mode        (str):  Determines the weight type ("shortest" for km, "fastest" for minutes)
 
     Returns:
     list: A list of airport IATA codes representing the optimal path, or None if no path exists
     """
     if start_iata not in graph or end_iata not in graph:
         return None
-    
+
     # Dictionary storing the shortest known distance from the start airport
     dist = {start_iata: 0.0}
 
@@ -111,7 +114,7 @@ def find_route_dijkstra(graph, start_iata, end_iata, mode="shortest"):
         # If destination is reached, return the reconstructed path (to find actual route)
         if cur_airport == end_iata:
             return _reconstruct_path(prev, start_iata, end_iata)
-        
+
         # Explore all connected airports
         for route in graph[cur_airport].get("routes", []):
             neighbour = route["iata"]
@@ -121,7 +124,7 @@ def find_route_dijkstra(graph, start_iata, end_iata, mode="shortest"):
                 weight = route["km"]
             elif mode == "fastest":
                 weight = route["min"]
-            
+
             # Calculate the new distance
             new_dist = cur_dist + weight
 
@@ -129,7 +132,7 @@ def find_route_dijkstra(graph, start_iata, end_iata, mode="shortest"):
             if neighbour not in dist or new_dist < dist[neighbour]:
                 dist[neighbour] = new_dist
                 prev[neighbour] = cur_airport
-            
+
                 # Push updated distance into priority queue
                 heapq.heappush(pq, (new_dist, neighbour))
     # No path found

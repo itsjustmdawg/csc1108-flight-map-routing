@@ -1,6 +1,6 @@
 import json
 
-from adt import Carrier, Route, Airport, FlightGraph
+from src.adt import Carrier, Path, Airport, FlightGraph
 
 def load_flight_data(filepath):
     with open(filepath, "r") as file:
@@ -8,7 +8,7 @@ def load_flight_data(filepath):
 
     flightGraph: FlightGraph = FlightGraph()
 
-# O(n^3) for parsing dictionary into classes
+    # O(n^3) for parsing dictionary into classes
     for key in data:
         airport_value = data[key]
 
@@ -33,26 +33,26 @@ def load_flight_data(filepath):
 
         flightGraph.add_airport(airport)
 
-        for route_value in airport_value["routes"]:
+        for path_value in airport_value["routes"]:
 
             carriers: list[Carrier] = []
-            for c in route_value["carriers"]:
+            for c in path_value["carriers"]:
                 carrier = Carrier(c["iata"], c["name"])
                 carriers.append(carrier)
 
             src: str = airport.iata
-            dest: str = route_value["iata"]
-            distance: float = route_value["km"]
-            duration: int = route_value["min"]
+            dest: str = path_value["iata"]
+            distance: int = path_value["km"]
+            duration: int = path_value["min"]
 
-            route = Route(src, dest, carriers, distance, duration)
+            path = Path(src, dest, carriers, distance, duration)
 
-            flightGraph.add_route(route)
+            flightGraph.add_path(path)
 
     return flightGraph
 
 
 
 
-graph = load_flight_data("data/airline_routes.json")
-print(graph.__repr__())
+#graph = load_flight_data("data/airline_routes.json")
+#print(graph.__repr__())
