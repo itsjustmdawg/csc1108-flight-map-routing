@@ -1,3 +1,6 @@
+// ===============================================
+// Global variables and constants
+// ===============================================
 const target = "SKYPATH";
 const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const colors = [
@@ -97,7 +100,7 @@ window.addEventListener("load", () => {
 });
 
 // ===============================================
-// World map logic
+// World map and marker logic
 // ===============================================
 var map = L.map("map").setView([20, 0], 2);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -106,6 +109,83 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
 
+let originMarker = null;
+let destinationMarker = null;
+
+function getAirportFromInput(inputElement) {
+  const selectedCode = inputElement.dataset.airportCode || "";
+  if (!selectedCode) {
+    return null;
+  }
+
+  return airportByCode.get(selectedCode) || null;
+}
+
+function hasValidCoordinates(airport) {
+  return (
+    airport &&
+    typeof airport.latitude === "number" &&
+    Number.isFinite(airport.latitude) &&
+    typeof airport.longitude === "number" &&
+    Number.isFinite(airport.longitude)
+  );
+}
+
+function updateMapViewport() {
+  const markerList = [originMarker, destinationMarker].filter(
+    (marker) => marker,
+  );
+
+  if (markerList.length === 2) {
+    const bounds = L.latLngBounds(
+      markerList.map((marker) => marker.getLatLng()),
+    );
+    map.fitBounds(bounds, { padding: [40, 40] });
+    return;
+  }
+
+  if (markerList.length === 1) {
+    map.setView(markerList[0].getLatLng(), 5);
+  }
+}
+
+function setAirportMarker(role, airport) {
+  const markerRef = role === "origin" ? originMarker : destinationMarker;
+
+  if (markerRef) {
+    map.removeLayer(markerRef);
+  }
+
+  if (!hasValidCoordinates(airport)) {
+    if (role === "origin") {
+      originMarker = null;
+    } else {
+      destinationMarker = null;
+    }
+    updateMapViewport();
+    return;
+  }
+
+  const marker = L.marker([airport.latitude, airport.longitude]).addTo(map);
+  marker.bindPopup(
+    `<b>${role === "origin" ? "Origin" : "Destination"}</b><br>${airport.code} - ${airport.name}`,
+  );
+
+  if (role === "origin") {
+    originMarker = marker;
+  } else {
+    destinationMarker = marker;
+  }
+
+  updateMapViewport();
+}
+
+function updateMarkerForInput(inputElement) {
+  const airport = getAirportFromInput(inputElement);
+  const role = inputElement.id === "origin" ? "origin" : "destination";
+  setAirportMarker(role, airport);
+}
+
 // ===============================================
 // Airport search dropdown logic
 // ===============================================
@@ -113,6 +193,20 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 // Filter button logic
 const filterButtons = document.querySelectorAll(".filter-option");
 let selectedFilter = "shortest_distance";
+
+const originInput = document.getElementById("origin");
+const destinationInput = document.getElementById("destination");
+const swapButton = document.getElementById("swap-button");
+const airportCountElement = document.getElementById("airport-count");
+const originOptions = document.getElementById("origin-options");
+const destinationOptions = document.getElementById("destination-options");
+const originContainer = document.getElementById("origin-searchable");
+const destinationContainer = document.getElementById("destination-searchable");
+
+let airportsCache = [];
+let popularAirports = [];
+const airportByCode = new Map();
+const POPULAR_AIRPORT_LIMIT = 20;
 
 filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -126,19 +220,6 @@ filterButtons.forEach((button) => {
     selectedFilter = button.dataset.filter;
   });
 });
-
-const originInput = document.getElementById("origin");
-const destinationInput = document.getElementById("destination");
-const swapButton = document.getElementById("swap-button");
-const originOptions = document.getElementById("origin-options");
-const destinationOptions = document.getElementById("destination-options");
-const originContainer = document.getElementById("origin-searchable");
-const destinationContainer = document.getElementById("destination-searchable");
-
-let airportsCache = [];
-let popularAirports = [];
-const airportByCode = new Map();
-const POPULAR_AIRPORT_LIMIT = 20;
 
 function buildAirportOptionLabel(airport) {
   return `${airport.code} | ${airport.icao} | ${airport.country} | ${airport.name}`;
@@ -180,6 +261,7 @@ function createAirportOptionButton(airport, inputElement, optionsElement) {
     inputElement.value = buildAirportOptionLabel(airport);
     inputElement.dataset.airportCode = airport.code;
     hideOptions(optionsElement);
+    updateMarkerForInput(inputElement);
   });
 
   return optionButton;
@@ -228,6 +310,7 @@ function wireSearchableDropdown(
 
   inputElement.addEventListener("input", () => {
     inputElement.dataset.airportCode = "";
+    updateMarkerForInput(inputElement);
     renderFilteredOptions(inputElement, optionsElement);
   });
 
@@ -264,6 +347,11 @@ function populateAirportDropdowns(airports) {
   });
 }
 
+// ===============================================
+// Initialization logic
+// ===============================================
+
+// Load airports from Python and populate dropdowns
 async function loadAirports() {
   if (
     !(
@@ -277,8 +365,15 @@ async function loadAirports() {
 
   const airports = await window.pywebview.api.get_airports();
   populateAirportDropdowns(airports);
+
+  if (airportCountElement) {
+    airportCountElement.textContent = airports.length.toLocaleString();
+  }
 }
 
+// ==============================================
+// Swap button logic
+// ==============================================
 swapButton.addEventListener("click", () => {
   const currentOriginLabel = originInput.value;
   const currentOriginCode = originInput.dataset.airportCode || "";
@@ -288,6 +383,9 @@ swapButton.addEventListener("click", () => {
 
   destinationInput.value = currentOriginLabel;
   destinationInput.dataset.airportCode = currentOriginCode;
+
+  updateMarkerForInput(originInput);
+  updateMarkerForInput(destinationInput);
 });
 
 wireSearchableDropdown(originInput, originOptions, originContainer);
