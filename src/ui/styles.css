@@ -351,6 +351,71 @@ footer {
     color: #64748b;
 }
 
+.airport-search-input {
+    border: none;
+    outline: none;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    font-family: var(--font-default);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: #0f172a;
+    cursor: text;
+}
+
+.airport-options {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    max-height: 220px;
+    overflow-y: auto;
+    background: #ffffff;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+    z-index: 30;
+}
+
+.airport-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    background: #ffffff;
+    text-align: left;
+    padding: 8px 10px;
+    cursor: pointer;
+    color: #1e293b;
+}
+
+.airport-option:hover,
+.airport-option:focus-visible {
+    background: #e0f2fe;
+    outline: none;
+}
+
+.airport-option-code {
+    font-weight: 800;
+    color: #0369a1;
+    min-width: 40px;
+}
+
+.airport-option-meta {
+    font-size: 13px;
+    color: #334155;
+}
+
+.airport-option-empty {
+    padding: 8px 10px;
+    font-size: 13px;
+    color: #64748b;
+}
+
 #swap {
     text-align: center;
 }

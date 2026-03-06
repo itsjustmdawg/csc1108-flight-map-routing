@@ -90,3 +90,159 @@ filterButtons.forEach((button) => {
         selectedFilter = button.dataset.filter;
     });
 });
+
+const originInput = document.getElementById("origin");
+const destinationInput = document.getElementById("destination");
+const swapButton = document.getElementById("swap-button");
+const originOptions = document.getElementById("origin-options");
+const destinationOptions = document.getElementById("destination-options");
+const originContainer = document.getElementById("origin-searchable");
+const destinationContainer = document.getElementById("destination-searchable");
+
+let airportsCache = [];
+let popularAirports = [];
+const airportByCode = new Map();
+const POPULAR_AIRPORT_LIMIT = 20;
+
+function buildAirportOptionLabel(airport) {
+    return `${airport.code} | ${airport.icao} | ${airport.country} | ${airport.name}`;
+}
+
+function getAirportSearchText(airport) {
+    return `${airport.code} ${airport.icao} ${airport.country} ${airport.name}`.toLowerCase();
+}
+
+function clearOptions(container) {
+    container.innerHTML = "";
+}
+
+function hideOptions(container) {
+    container.hidden = true;
+}
+
+function showOptions(container) {
+    container.hidden = false;
+}
+
+function createAirportOptionButton(airport, inputElement, optionsElement) {
+    const optionButton = document.createElement("button");
+    optionButton.type = "button";
+    optionButton.className = "airport-option";
+
+    const codeSpan = document.createElement("span");
+    codeSpan.className = "airport-option-code";
+    codeSpan.textContent = airport.code;
+
+    const metaSpan = document.createElement("span");
+    metaSpan.className = "airport-option-meta";
+    metaSpan.textContent = `${airport.icao} | ${airport.country} | ${airport.name}`;
+
+    optionButton.appendChild(codeSpan);
+    optionButton.appendChild(metaSpan);
+
+    optionButton.addEventListener("click", () => {
+        inputElement.value = buildAirportOptionLabel(airport);
+        inputElement.dataset.airportCode = airport.code;
+        hideOptions(optionsElement);
+    });
+
+    return optionButton;
+}
+
+function renderFilteredOptions(inputElement, optionsElement) {
+    clearOptions(optionsElement);
+
+    const query = inputElement.value.trim().toLowerCase();
+    const sourceAirports = query === ""
+        ? popularAirports
+        : airportsCache.filter((airport) => getAirportSearchText(airport).includes(query));
+
+    const filteredAirports = sourceAirports.slice(0, 120);
+
+    if (filteredAirports.length === 0) {
+        const emptyState = document.createElement("div");
+        emptyState.className = "airport-option-empty";
+        emptyState.textContent = query === "" ? "No popular airports available" : "No matching airports";
+        optionsElement.appendChild(emptyState);
+        showOptions(optionsElement);
+        return;
+    }
+
+    filteredAirports.forEach((airport) => {
+        optionsElement.appendChild(createAirportOptionButton(airport, inputElement, optionsElement));
+    });
+
+    showOptions(optionsElement);
+}
+
+function wireSearchableDropdown(inputElement, optionsElement, containerElement) {
+    inputElement.addEventListener("focus", () => {
+        renderFilteredOptions(inputElement, optionsElement);
+    });
+
+    inputElement.addEventListener("input", () => {
+        inputElement.dataset.airportCode = "";
+        renderFilteredOptions(inputElement, optionsElement);
+    });
+
+    inputElement.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            hideOptions(optionsElement);
+        }
+    });
+
+    document.addEventListener("click", (event) => {
+        if (!containerElement.contains(event.target)) {
+            hideOptions(optionsElement);
+        }
+    });
+}
+
+function populateAirportDropdowns(airports) {
+    airportsCache = airports;
+    popularAirports = [...airports]
+        .sort((a, b) => {
+            const byRoutes = (b.route_count || 0) - (a.route_count || 0);
+            if (byRoutes !== 0) {
+                return byRoutes;
+            }
+
+            return a.code.localeCompare(b.code);
+        })
+        .slice(0, POPULAR_AIRPORT_LIMIT);
+
+    airportByCode.clear();
+
+    airports.forEach((airport) => {
+        airportByCode.set(airport.code, airport);
+    });
+}
+
+async function loadAirports() {
+    if (!(window.pywebview && window.pywebview.api && window.pywebview.api.get_airports)) {
+        return;
+    }
+
+    const airports = await window.pywebview.api.get_airports();
+    populateAirportDropdowns(airports);
+}
+
+swapButton.addEventListener("click", () => {
+    const currentOriginLabel = originInput.value;
+    const currentOriginCode = originInput.dataset.airportCode || "";
+
+    originInput.value = destinationInput.value;
+    originInput.dataset.airportCode = destinationInput.dataset.airportCode || "";
+
+    destinationInput.value = currentOriginLabel;
+    destinationInput.dataset.airportCode = currentOriginCode;
+});
+
+wireSearchableDropdown(originInput, originOptions, originContainer);
+wireSearchableDropdown(destinationInput, destinationOptions, destinationContainer);
+
+window.addEventListener("pywebviewready", loadAirports);
+
+if (window.pywebview && window.pywebview.api && window.pywebview.api.get_airports) {
+    loadAirports();
+}

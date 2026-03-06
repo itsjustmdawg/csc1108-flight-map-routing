@@ -39,12 +39,10 @@
             <div id="location-search">
                 <div class="field-wrapper" id="origin-wrapper">
                     <label for="origin">ORIGIN</label>
-                    <div class="field-input-box" onclick="this.querySelector('input').focus();">
-                        <input type="text" id="origin" placeholder="Search IATA or city..." />
+                    <div class="field-input-box searchable-airport" id="origin-searchable">
+                        <input type="text" id="origin" class="airport-search-input" placeholder="Search airport code, country, or name..." autocomplete="off" />
                         <span class="dropdown-arrow">▼</span>
-                        <datalist id="origin-list">
-                            <option value=""></option>
-                        </datalist>
+                        <div class="airport-options" id="origin-options" hidden></div>
                     </div>
                 </div>
 
@@ -56,12 +54,10 @@
 
                 <div class="field-wrapper" id="destination-wrapper">
                     <label for="destination">DESTINATION</label>
-                    <div class="field-input-box" onclick="this.querySelector('input').focus();">
-                        <input type="text" id="destination" placeholder="Search IATA or city..." />
+                    <div class="field-input-box searchable-airport" id="destination-searchable">
+                        <input type="text" id="destination" class="airport-search-input" placeholder="Search airport code, country, or name..." autocomplete="off" />
                         <span class="dropdown-arrow">▼</span>
-                        <datalist id="destination-list">
-                            <option value=""></option>
-                        </datalist>
+                        <div class="airport-options" id="destination-options" hidden></div>
                     </div>
                 </div>
             </div>
