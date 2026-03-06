@@ -199,15 +199,6 @@ header {
     font-family: var(--font-title);
 }
 
-#status-button {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: #16a34a;
-    box-shadow: 0 0 6px #16a34a;
-    margin-top: -1px;
-}
-
 .app {
     display: flex;
     height: 90vh;
