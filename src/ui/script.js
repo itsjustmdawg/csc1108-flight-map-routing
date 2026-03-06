@@ -74,6 +74,15 @@ window.addEventListener("load", () => {
     setInterval(animateBoard, 6000);
 });
 
+// ===============================================
+// World map logic
+// ===============================================
+var map = L.map("map").setView([20, 0], 2);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+
 // Filter option buttons: keep a single active option at a time.
 const filterButtons = document.querySelectorAll(".filter-option");
 let selectedFilter = "shortest_distance";

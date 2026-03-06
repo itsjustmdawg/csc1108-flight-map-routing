@@ -18,11 +18,26 @@
     --font-solari: Arial, sans-serif;
 }
 
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+}
+
 body {
     margin: 0;
     font-family: var(--font-default);
     background: #f8fafc;
     color: #1e293b;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 header {
@@ -201,13 +216,17 @@ header {
 
 .app {
     display: flex;
-    height: 90vh;
+    flex: 1;
+    min-height: 0;
 }
 
 .sidebar {
-    width: 320px;
+    width: 340px;
     background: #e2e8f0;
     padding: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex-shrink: 0;
 }
 
 .sidebar h3 {
@@ -273,6 +292,14 @@ select {
     border-left: 1px solid #0284c7;
 }
 
+#map {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+    border-left: 1px solid #0284c7;
+}
+
 footer {
     text-align: center;
     padding: 10px;
@@ -298,7 +325,8 @@ footer {
 }
 
 .field-wrapper {
-    width: 330px;
+    width: 100%;
+    max-width: 100%;
     position: relative;
     margin: 10px 0 15px 0;
     padding: 0;
@@ -416,25 +444,26 @@ footer {
 }
 
 #filter {
-    width: 330px;
+    width: 100%;
+    max-width: 100%;
     position: relative;
     margin: 15px 0;
     padding: 0;
 }
 
 #filter-options {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-evenly;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
 }
 
 .filter-col {
-    margin: 0 10px 0 0;
+    margin: 0;
     font-size: 13px;
 }
 
 .filter-option {
-    width: 150px;
+    width: 100%;
     border: 1px solid #0284c7;
     align-items: center;
     text-align: center;
