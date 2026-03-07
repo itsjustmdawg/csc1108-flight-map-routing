@@ -40,8 +40,10 @@ def test():
 
         print(f"\nDijkstra algo distance: {total_km}km | Time: {total_min} minutes")
 
-
-
+"""
+if __name__ == "__main__":
+    test()
+"""
 
 
 
