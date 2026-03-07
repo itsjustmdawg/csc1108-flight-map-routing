@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
     ui_path = os.path.join(os.path.dirname(__file__), "src", "ui", "index.html")
 
-    test()
+    # test()
 
     webview.create_window(
         title = 'SkyPath - Flight Route Finder',
