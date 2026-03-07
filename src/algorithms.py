@@ -1,12 +1,8 @@
 from collections import deque
 import heapq    # used by Dijkstra's to implement a priority queue for selecting the smallest distance node
-from adt import FlightGraph
+from adt import FlightGraph, Airport, Route
 
-from src.adt import Route
-
-# BFS
-def find_route_least_connections(graph: FlightGraph, start_iata: str, end_iata: str) -> Route:
-
+def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end_airport: Airport) -> Route | None:
     """
     Finds the route with the fewest layovers between two airports using BFS.
 
@@ -19,8 +15,12 @@ def find_route_least_connections(graph: FlightGraph, start_iata: str, end_iata: 
     list: A list of IATA codes representing the shortest path, or None if no path exists.
     """
 
+    # Extract iata from Airport class
+    start_iata: str = start_airport.iata
+    end_iata: str = end_airport.iata
+    
     # Validate if iata is in graph dataset
-    if start_iata not in graph.airports.keys() or end_iata not in graph.airports.keys():
+    if not graph.has_airport(start_iata) or not graph.has_airport(end_iata):
         return None
 
     # Initialize a queue for BFS that stores tuples containing the current airport and the path taken to reach it.
@@ -41,7 +41,7 @@ def find_route_least_connections(graph: FlightGraph, start_iata: str, end_iata: 
         for route in graph.get_neighbours(current_iata):
 
             # Assign route destination to local variable
-            destination = route.destination
+            destination: str = route.destination
 
             # Appending relevant list to eventually meet search condition above
             if destination not in visited:
