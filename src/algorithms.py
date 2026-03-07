@@ -1,25 +1,26 @@
 from collections import deque
 import heapq    # used by Dijkstra's to implement a priority queue for selecting the smallest distance node
+from adt import FlightGraph, Airport, Route
 
-from src.adt import Route
-
-# BFS
-def find_route_least_connections(graph, start_iata, end_iata) -> Route:
-
+def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end_airport: Airport) -> Route | None:
     """
     Finds the route with the fewest layovers between two airports using BFS.
 
     Parameters:
-    graph       (dict): The parsed airline routes adjacency list.
-    start_iata  (str):  The 3-letter IATA code of the starting airport.
-    end_iata    (str):  The 3-letter IATA code of the destination airport.
-
+    graph (FlightGraph): The data structure of the cleaned JSON data.
+    start_iata (str): The 3-letter IATA code of the starting airport.
+    end_iata (str): The 3-letter IATA code of the destination airport.
+    
     Returns:
     list: A list of IATA codes representing the shortest path, or None if no path exists.
     """
 
+    # Extract iata from Airport class
+    start_iata: str = start_airport.iata
+    end_iata: str = end_airport.iata
+    
     # Validate if iata is in graph dataset
-    if start_iata not in graph or end_iata not in graph:
+    if not graph.has_airport(start_iata) or not graph.has_airport(end_iata):
         return None
 
     # Initialize a queue for BFS that stores tuples containing the current airport and the path taken to reach it.
@@ -35,17 +36,21 @@ def find_route_least_connections(graph, start_iata, end_iata) -> Route:
         # If the destination is reached, return the path
         if current_iata == end_iata:
             return current_path
+        
+        # Iterate through neighbouring nodes from the current airport
+        for route in graph.get_neighbours(current_iata):
 
-        # Iterate through all outgoing flights from the current airport
-        # Using the specific 'routes' list structure from your JSON
-        for route in graph[current_iata].get('routes', []):
-            neighbor_iata = route['iata']
+            # Assign route destination to local variable
+            destination: str = route.destination
 
-            # If the neighbor hasn't been visited, add it to the queue
-            if neighbor_iata not in visited:
-                visited.add(neighbor_iata)
+            # Appending relevant list to eventually meet search condition above
+            if destination not in visited:
+
+                # Append current destination to list of visited nodes
+                visited.add(destination)
+
                 # Create a new path list appending the neighbor
-                queue.append((neighbor_iata, current_path + [neighbor_iata]))
+                queue.append((destination, current_path + [destination]))
 
     # Return None if the queue empties and no path is found
     return None
