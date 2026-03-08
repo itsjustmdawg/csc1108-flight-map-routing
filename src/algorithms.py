@@ -104,7 +104,7 @@ def _reconstruct_path(prev_path: dict, start: str, end: str):
 # Dijkstra
 def find_route_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest") -> Route | None:
     """
-    Finds the optimal route between two airports using Dijkstra's algorithm.
+    Finds the optimal route between two airports using Dijkstra's algorithm. (taught algorithm)
 
     Parameters:
     graph       (FlightGraph): The cleaned flight graph.
@@ -178,28 +178,88 @@ def find_route_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode
     # Return None if no path exists
     return None
 
-"""
-# for algorithm testing 
+def find_route_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest"):
+    """
+    Finds the optimal route between two airports using the Bellman-Ford algorithm. (new algorithm)
+    
+    Parameters:
+    graph       (FlightGraph): The cleaned flight graph.
+    start_iata  (str): The 3-letter IATA code of the starting airport.
+    end_iata    (str): The 3-letter IATA code of the destination airport.
+    mode        (str): "shortest" for distance, "fastest" for duration
 
-if __name__ == "__main__":
-    from src import data_loader
+    Returns:
+    Route: A Route object representing the optimal path, or None if no path exists. 
+    """
+    # Validate if both airports exists in the graph
+    if not graph.has_airport(start_iata) or not graph.has_airport(end_iata):
+        return None
+    
+    # Get all airport codes in the graph
+    airports = graph.get_all_codes()
 
-    graph = data_loader.load_flight_data("data/airline_routes.json")
+    # Dictionary storing the shortest known cost from the start airport
+    dist = {iata: float("inf") for iata in airports}
+    dist[start_iata] = 0
 
-    print(graph)  # just to confirm graph loaded
+    # Dictionary storing the Path object used to reach each airport
+    prev_path = {}
 
-    start = "AAA"
-    end = "FAC"
+    # Relax all paths V - 1 times (for Bellman Ford's algorithm, we go through each airport and outgoing path to try to improve the shortest path)
+    for _ in range(len(airports) - 1):
+        updated = False     # Track whether any distance was updated
 
-    route = find_route_dijkstra(graph, start, end, mode="shortest")
+        # Iterate through every airport in the graph
+        for airport in airports:
 
-    print("Dijkstra result:", route)
+            # Skip unreachable airports
+            if dist[airports] == float("inf"):
+                continue
 
-    if route is not None:
-        print("Total distance:", route.distance_km)
-        print("Total duration:", route.duration_min)
-        print("Paths:")
-        for path in route.paths:
-            print(f"{path.source} -> {path.destination} | {path.distance_km} km | {path.duration_min} min")
+            # Explore all outgoing paths from the current airport
+            for path in graph.get_neighbours(airport):
+                neighbour = path.destination
 
-"""
+                # Determine edge weight based on selected mode
+                if mode == "shortest":
+                    weight = path.distance_km
+                elif mode == "fastest":
+                    weight = path.duration_min
+                else:
+                    raise ValueError("mode must be 'shortest' or 'fastest'")
+                
+                # Calculate the new cost through the current airport
+                new_cost = dist[airport] + weight
+
+                # Update if a better route is found
+                if new_cost < dist.get(neighbour, float("inf")):
+                    dist[neighbour] = new_cost
+                    prev_path[neighbour] = path
+                    updated = True
+            
+        # Stop early if no updates were made in this round
+        if not updated:
+            break
+
+    # Optimal negative cycles detection
+    for airport in airports:
+        if dist[airport] == float("inf"):
+            continue
+
+        for path in graph.get_neighbours(airport):
+            neighbour = path.destination
+
+            if mode == "shortest":
+                weight = path.distance_km
+            else:
+                weight = path.duration_min
+
+            if dist[airport] + weight < dist.get(neighbour, float("inf")):
+                raise ValueError("Graph contains a negative-weight cycle")
+            
+    # If destination was never reached, return None
+    if end_iata != start_iata and end_iata not in prev_path:
+        return None
+
+    # Reconstruct and return the final Route object
+    return _reconstruct_path(prev_path, start_iata, end_iata)
