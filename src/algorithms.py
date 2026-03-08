@@ -213,7 +213,7 @@ def find_route_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, m
         for airport in airports:
 
             # Skip unreachable airports
-            if dist[airports] == float("inf"):
+            if dist[airport] == float("inf"):
                 continue
 
             # Explore all outgoing paths from the current airport
