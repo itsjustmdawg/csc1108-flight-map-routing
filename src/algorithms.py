@@ -92,12 +92,14 @@ def _reconstruct_path(prev_path: dict, start: str, end: str):
     # Calculate the total distance and duration of the route by summing the distance and duration of each Path
     total_distance = sum(path.distance_km for path in route_paths)
     total_duration = sum(path.duration_min for path in route_paths)
+    total_price = sum(path.price for path in route_paths)
 
     # Construct and return a Route object containing the total distance, total duration, and the list of Path objects that form the route
     return Route(
         distance_km=total_distance,
         duration_min=total_duration,
-        paths=route_paths
+        paths=route_paths,
+        price=total_price
     )
 
 
@@ -110,7 +112,7 @@ def find_route_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode
     graph       (FlightGraph): The cleaned flight graph.
     start_iata  (str): The 3-letter IATA code of the starting airport.
     end_iata    (str): The 3-letter IATA code of the destination airport.
-    mode        (str): "shortest" for distance, "fastest" for duration
+    mode        (str): "shortest" for distance, "fastest" for duration, "cheapest" for price
 
     Returns:
     list: A list of airport IATA codes representing the optimal path, or None if no path exists.
@@ -154,8 +156,10 @@ def find_route_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode
                 weight = path.distance_km
             elif mode == "fastest":
                 weight = path.duration_min
+            elif mode == "cheapest":
+                weight = path.price
             else:
-                raise ValueError("mode must be 'shortest' or 'fastest'")
+                raise ValueError("mode must be 'shortest', 'fastest', 'cheapest'")
 
             # Calculate new accumulated cost
             new_cost = cur_cost + weight
@@ -186,7 +190,7 @@ def find_route_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, m
     graph       (FlightGraph): The cleaned flight graph.
     start_iata  (str): The 3-letter IATA code of the starting airport.
     end_iata    (str): The 3-letter IATA code of the destination airport.
-    mode        (str): "shortest" for distance, "fastest" for duration
+    mode        (str): "shortest" for distance, "fastest" for duration, "cheapest" for price
 
     Returns:
     Route: A Route object representing the optimal path, or None if no path exists. 
@@ -225,8 +229,10 @@ def find_route_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, m
                     weight = path.distance_km
                 elif mode == "fastest":
                     weight = path.duration_min
+                elif mode == "cheapest":
+                    weight == path.price
                 else:
-                    raise ValueError("mode must be 'shortest' or 'fastest'")
+                    raise ValueError("mode must be 'shortest', 'fastest', or 'cheapest")
                 
                 # Calculate the new cost through the current airport
                 new_cost = dist[airport] + weight
@@ -251,8 +257,12 @@ def find_route_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, m
 
             if mode == "shortest":
                 weight = path.distance_km
-            else:
+            elif mode == "fastest":
                 weight = path.duration_min
+            elif mode == "cheapest":
+                weight = path.price
+            else:
+                raise ValueError("mode must be 'shortest', 'fastest', or 'cheapest'")
 
             if dist[airport] + weight < dist.get(neighbour, float("inf")):
                 raise ValueError("Graph contains a negative-weight cycle")

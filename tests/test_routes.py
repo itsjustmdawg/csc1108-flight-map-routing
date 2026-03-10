@@ -7,17 +7,22 @@ def test():
 
     print(graph)
 
+    # Choose optimisation mode: shortest, fastest, cheapest
+    mode = "shortest"
+
+    print(f"\nOptimisation Mode: {mode.upper()}")
+
     # NOTE: To use list[Route] for type safety
     # bfs_route: Route = find_route_least_connections(graph, "SIG", "CPX")
     bfs_route: Route = find_route_least_connections(graph, "SIG", "CPX")
 
     # NOTE: implement input validation for shortest and cheapest (fastest)
-    # dijkstra_route: Route = find_route_dijkstra(graph, "SIG", "CPX", mode="shortest")
-    dijkstra_route = find_route_dijkstra(graph, "SIG", "CPX", mode="shortest")
+    # dijkstra_route: Route = find_route_dijkstra(graph, "SIG", "CPX", mode=mode)
+    dijkstra_route: Route = find_route_dijkstra(graph, "SIG", "CPX", mode=mode)
 
     # NOTE: Bellman-Ford alternative shortest path algorithm
-    # bellman_route: Route = find_route_bellman_ford(graph, "SIG", "CPX", mode="shortest")
-    bellman_route = find_route_bellmanFord(graph, "SIG", "CPX", mode="shortest")
+    # bellman_route: Route = find_route_bellmanFord(graph, "SIG", "CPX", mode=mode)
+    bellman_route: Route = find_route_bellmanFord(graph, "SIG", "CPX", mode=mode)
 
     print(f"BFS Result: {bfs_route}")
     # Calculate total bfs distance
@@ -37,12 +42,14 @@ def test():
     if dijkstra_route:
         total_km: int = 0
         total_min: int = 0
+        total_price: float = 0
 
         for path in dijkstra_route.paths:
             total_km += path.distance_km
             total_min += path.duration_min
+            total_price += path.price
 
-        print(f"\nDijkstra algo distance: {total_km}km | Time: {total_min} minutes")
+        print(f"\nDijkstra algo distance: {total_km}km | Time: {total_min} minutes | Price: ${total_price:.2f}")
 
     # Calculate total bellman-ford distance
     # NOTE: Convert to helper function
@@ -50,12 +57,14 @@ def test():
     if bellman_route:
         total_km: int = 0
         total_min: int = 0
+        total_price: float = 0
 
         for path in bellman_route.paths:
             total_km += path.distance_km
             total_min += path.duration_min
+            total_price += path.price
 
-        print(f"\nBellman-Ford algo distance: {total_km} km | Time: {total_min} minutes")
+        print(f"\nBellman-Ford algo distance: {total_km} km | Time: {total_min} minutes | Price: ${total_price:.2f}")
 
     """
     To compare whether Dijkstra and Bellman Ford gives the same total distance for "shortest (distance_km)" mode
@@ -65,12 +74,12 @@ def test():
         print("Same duration:", dijkstra_route.duration_min == bellman_route.duration_min)
     """
 
-"""
+
 # For testing if algo works
 
 if __name__ == "__main__":
     test()
-"""
+
 
 
 

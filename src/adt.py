@@ -52,6 +52,7 @@ class Route:
     distance_km: int
     duration_min: int
     paths: list[Path]
+    price: float
 
 class FlightGraph:
     def __init__(self):
