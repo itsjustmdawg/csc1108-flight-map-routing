@@ -45,7 +45,15 @@ def load_flight_data(filepath):
             distance: int = path_value["km"]
             duration: int = path_value["min"]
 
-            path = Path(src, dest, carriers, distance, duration)
+            # Estimate flight price based on distance and duration
+            if distance < 300:
+                estimated_price = 100 + (distance * 0.30) + (duration * 0.40)
+            elif distance < 1500:
+                estimated_price = 150 + (distance * 0.22) + (duration * 0.35)
+            else:
+                estimated_price = 250 + (distance * 0.18) + (duration * 0.30)
+
+            path = Path(src, dest, carriers, distance, duration, estimated_price)
 
             flightGraph.add_path(path)
 
