@@ -1,6 +1,7 @@
 from src.adt import FlightGraph, Route
 from src.data_loader import load_flight_data
-from src.algorithms import find_route_dijkstra, find_route_least_connections, find_route_bellmanFord
+#from src.algorithms import find_routes_dijkstra, find_route_least_connections, find_routes_bellmanFord
+from src.algorithms import find_routes_dijkstra, find_routes_bellmanFord
 
 def test():
     graph: FlightGraph = load_flight_data("data/airline_routes.json")
@@ -14,16 +15,17 @@ def test():
 
     # NOTE: To use list[Route] for type safety
     # bfs_route: Route = find_route_least_connections(graph, "SIG", "CPX")
-    bfs_route: Route = find_route_least_connections(graph, "SIG", "CPX")
+    #bfs_route: Route = find_route_least_connections(graph, "SIG", "CPX")
 
     # NOTE: implement input validation for shortest and cheapest (fastest)
     # dijkstra_route: Route = find_route_dijkstra(graph, "SIG", "CPX", mode=mode)
-    dijkstra_route: Route = find_route_dijkstra(graph, "SIG", "CPX", mode=mode)
+    dijkstra_route: Route = find_routes_dijkstra(graph, "SIG", "CPX", mode=mode)
 
     # NOTE: Bellman-Ford alternative shortest path algorithm
     # bellman_route: Route = find_route_bellmanFord(graph, "SIG", "CPX", mode=mode)
-    bellman_route: Route = find_route_bellmanFord(graph, "SIG", "CPX", mode=mode)
+    bellman_route: Route = find_routes_bellmanFord(graph, "SIG", "CPX", mode=mode)
 
+    """
     print(f"BFS Result: {bfs_route}")
     # Calculate total bfs distance
     # NOTE: Convert to helper function
@@ -35,7 +37,9 @@ def test():
             total_km += path.distance_km
             total_min += path.duration_min
         print(f"\nBFS algo distance: {total_km}km | Time: {total_min} minutes")
-
+    """
+        
+    """
     print(f"\nDjikstra (shortest) Result: {dijkstra_route}")
     # Calculate total dijkstra distance
     # NOTE: Convert to helper function
@@ -50,7 +54,27 @@ def test():
             total_price += path.price
 
         print(f"\nDijkstra algo distance: {total_km}km | Time: {total_min} minutes | Price: ${total_price:.2f}")
+    """
+        
+    print(f"\Dijkstra Multiple Routes ({mode}) Result:")
+    if dijkstra_route:
+        for index, route in enumerate(dijkstra_route, start=1):
+            print(f"\nRoute Option {index}: {route}")
 
+            total_km: int = 0
+            total_min: int = 0
+            total_price: float = 0
+
+            for path in route.paths:
+                total_km += path.distance_km
+                total_min += path.duration_min
+                total_price += path.price
+
+            print(f"Bellman-Ford route distance: {total_km} km | Time: {total_min} minutes | Price: ${total_price:.2f}")
+    else:
+        print("No routes found.")
+    
+    """
     # Calculate total bellman-ford distance
     # NOTE: Convert to helper function
     print(f"\nBellman-Ford (shortest) Result: {bellman_route}")
@@ -65,14 +89,24 @@ def test():
             total_price += path.price
 
         print(f"\nBellman-Ford algo distance: {total_km} km | Time: {total_min} minutes | Price: ${total_price:.2f}")
+    """
+    print(f"\nBellman-Ford Multiple Routes ({mode}) Result:")
+    if bellman_route:
+        for index, route in enumerate(bellman_route, start=1):
+            print(f"\nRoute Option {index}: {route}")
 
-    """
-    To compare whether Dijkstra and Bellman Ford gives the same total distance for "shortest (distance_km)" mode
-    if dijkstra_route and bellman_route:
-        print("\nComparing Dijkstra and Bellman-Ford:")
-        print("Same distance:", dijkstra_route.distance_km == bellman_route.distance_km)
-        print("Same duration:", dijkstra_route.duration_min == bellman_route.duration_min)
-    """
+            total_km: int = 0
+            total_min: int = 0
+            total_price: float = 0
+
+            for path in route.paths:
+                total_km += path.distance_km
+                total_min += path.duration_min
+                total_price += path.price
+
+            print(f"Bellman-Ford route distance: {total_km} km | Time: {total_min} minutes | Price: ${total_price:.2f}")
+    else:
+        print("No routes found.")
 
 
 # For testing if algo works

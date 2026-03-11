@@ -1,11 +1,10 @@
 from collections import deque
 import heapq  # used by Dijkstra's to implement a priority queue for selecting the smallest distance node
 
-from src.adt import FlightGraph, Route, Path
+from src.adt import FlightGraph, Airport, Route
 
 # BFS
-def find_route_least_connections(graph: FlightGraph, start_iata: str, end_iata:str) -> Route | None:
-
+def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end_airport: Airport) -> Route | None:
     """
     Finds the route with the fewest layovers between two airports using BFS.
 
@@ -32,32 +31,31 @@ def find_route_least_connections(graph: FlightGraph, start_iata: str, end_iata:s
     # Set to keep track of visited airports to prevent infinite loops
     visited = {start_iata}
 
-    # Dictionary to store the Path object used to reach each airport
-    prev_path = {}
-
     while queue:
         # Dequeue the first element
         current_iata, current_path = queue.popleft()
 
         # If the destination is reached, return the path
         if current_iata == end_iata:
-            return _reconstruct_path(prev_path, start_iata, end_iata)
+            return current_path
+        
+        # Iterate through neighbouring nodes from the current airport
+        for route in graph.get_neighbours(current_iata):
 
-        # Iterate through all outgoing flights from the current airport
-        # Using the specific 'routes' list structure from your JSON
-        for path in graph.get_neighbours(current_iata):
-            neighbor_iata = path.destination
+            # Assign route destination to local variable
+            destination: str = route.destination
 
-            # If the neighbor hasn't been visited, add it to the queue
-            if neighbor_iata not in visited:
-                visited.add(neighbor_iata)
-                prev_path[neighbor_iata] = path
+            # Appending relevant list to eventually meet search condition above
+            if destination not in visited:
+
+                # Append current destination to list of visited nodes
+                visited.add(destination)
+
                 # Create a new path list appending the neighbor
                 queue.append((destination, current_path + [destination]))
 
     # Return None if the queue empties and no path is found
     return None
-
 
 # Internal helper function for Dijkstra's Algorithm
 def _reconstruct_path(prev_path: dict, start: str, end: str):
@@ -107,10 +105,11 @@ def _reconstruct_path(prev_path: dict, start: str, end: str):
     )
 
 
-# Dijkstra
-def find_route_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest") -> Route | None:
+# Blocked-edge version of Dijkstra
+def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest", blocked_edges = None) -> Route | None:
     """
-    Finds the optimal route between two airports using Dijkstra's algorithm. (taught algorithm)
+    Finds the optimal route between two airports using Dijkstra's algorithm 
+    while ignoring blocked edges (edge meaning flight route between airports). (taught algorithm)
 
     Parameters:
     graph       (FlightGraph): The cleaned flight graph.
@@ -121,6 +120,9 @@ def find_route_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode
     Returns:
     list: A list of airport IATA codes representing the optimal path, or None if no path exists.
     """
+    if blocked_edges is None:
+        blocked_edges = set()
+
     # Validate if both airports exist in the graph
     if not graph.has_airport(start_iata) or not graph.has_airport(end_iata):
         return None
@@ -186,9 +188,61 @@ def find_route_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode
     # Return None if no path exists
     return None
 
-def find_route_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest"):
+# Dijkstra: return multiple routes
+def find_routes_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode = "shortest") -> list[Route]:
     """
-    Finds the optimal route between two airports using the Bellman-Ford algorithm. (new algorithm)
+    Finds multiple route options between two airports using repeated Dijkstra runs.
+
+    Parameters:
+    graph       (FlightGraph): The cleaned flight graph.
+    start_iata  (str): The 3-letter IATA code of the starting airport.
+    end_iata    (str): The 3-letter IATA code of the destination airport.
+    mode        (str): "shortest" for distance, "fastest" for duration, "cheapest" for price
+
+    Returns:
+    list[Route]: A list of route options from best to less optimal.
+    """
+    routes = []
+    blocked_edges = set()
+    seen_signatures = set()
+
+    while True:
+        route = _find_route_dijkstra_blocked(
+            graph,
+            start_iata,
+            end_iata,
+            mode = mode,
+            blocked_edges = blocked_edges
+        )
+
+        # Stop when no more routes can be found
+        if route is None:
+            return None
+        
+        # Build a unique signature for the route
+        signature = tuple((path.source, path.destination) for path in route.paths)
+
+        # Stop if the same route appears again
+        if signature in seen_signatures:
+            break
+
+        seen_signatures.add(signature)
+        routes.append(route)
+
+        # Blocked one edge from the current route to force a different alternative
+        if route.paths:
+            edge_to_block = (route.paths[-1].source, route.paths[-1].destination)
+            blocked_edges.add(edge_to_block)
+        else:
+            break
+
+    return routes
+
+# Blocked-edge version of Bellman-Ford
+def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest", blocked_edges = None) -> Route | None:
+    """
+    Finds the optimal route between two airports using the Bellman-Ford algorithm
+    while ignoring blocked edges. (new algorithm)
     
     Parameters:
     graph       (FlightGraph): The cleaned flight graph.
@@ -199,6 +253,9 @@ def find_route_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, m
     Returns:
     Route: A Route object representing the optimal path, or None if no path exists. 
     """
+    if blocked_edges is None:
+        return None
+
     # Validate if both airports exists in the graph
     if not graph.has_airport(start_iata) or not graph.has_airport(end_iata):
         return None
@@ -226,6 +283,10 @@ def find_route_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, m
 
             # Explore all outgoing paths from the current airport
             for path in graph.get_neighbours(airport):
+
+                if (path.source, path.destination) in blocked_edges:
+                    continue
+
                 neighbour = path.destination
 
                 # Determine edge weight based on selected mode
@@ -234,9 +295,9 @@ def find_route_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, m
                 elif mode == "fastest":
                     weight = path.duration_min
                 elif mode == "cheapest":
-                    weight == path.price
+                    weight = path.price
                 else:
-                    raise ValueError("mode must be 'shortest', 'fastest', or 'cheapest")
+                    raise ValueError("mode must be 'shortest', 'fastest', or 'cheapest'")
                 
                 # Calculate the new cost through the current airport
                 new_cost = dist[airport] + weight
@@ -257,6 +318,10 @@ def find_route_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, m
             continue
 
         for path in graph.get_neighbours(airport):
+
+            if (path.source, path.destination) in blocked_edges:
+                continue
+
             neighbour = path.destination
 
             if mode == "shortest":
@@ -277,3 +342,50 @@ def find_route_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, m
 
     # Reconstruct and return the final Route object
     return _reconstruct_path(prev_path, start_iata, end_iata)
+
+# Bellman-Ford: returns multiple routes
+def find_routes_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest") -> list[Route]:
+    """
+    Finds multiple optimal route between two airports using the Bellman-Ford algorithm.
+    
+    Parameters:
+    graph       (FlightGraph): The cleaned flight graph.
+    start_iata  (str): The 3-letter IATA code of the starting airport.
+    end_iata    (str): The 3-letter IATA code of the destination airport.
+    mode        (str): "shortest" for distance, "fastest" for duration, "cheapest" for price
+
+    Returns:
+    list[Route]: A list of route options from best to less optimal. 
+    """
+    routes = []
+    blocked_edges = set()
+    seen_signatures = set()
+
+    while True:
+        route = _find_route_bellmanFord_blocked(
+            graph,
+            start_iata,
+            end_iata,
+            mode=mode,
+            blocked_edges=blocked_edges
+        )
+
+        if route is None:
+            break
+
+        signature = tuple((p.source, p.destination) for p in route.paths)
+
+        if signature in seen_signatures:
+            break
+
+        seen_signatures.add(signature)
+        routes.append(route)
+
+        # block one edge to force alternative route
+        if route.paths:
+            edge_to_block = (route.paths[-1].source, route.paths[-1].destination)
+            blocked_edges.add(edge_to_block)
+        else:
+            break
+
+    return routes
