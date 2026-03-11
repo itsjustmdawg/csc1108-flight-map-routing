@@ -10,14 +10,18 @@ def find_route_least_connections(graph: FlightGraph, start_iata: str, end_iata:s
     Finds the route with the fewest layovers between two airports using BFS.
 
     Parameters:
-    graph       (dict): The parsed airline routes adjacency list.
-    start_iata  (str):  The 3-letter IATA code of the starting airport.
-    end_iata    (str):  The 3-letter IATA code of the destination airport.
-
+    graph (FlightGraph): The data structure of the cleaned JSON data.
+    start_iata (str): The 3-letter IATA code of the starting airport.
+    end_iata (str): The 3-letter IATA code of the destination airport.
+    
     Returns:
     list: A list of IATA codes representing the shortest path, or None if no path exists.
     """
 
+    # Extract iata from Airport class
+    start_iata: str = start_airport.iata
+    end_iata: str = end_airport.iata
+    
     # Validate if iata is in graph dataset
     if not graph.has_airport(start_iata) or not graph.has_airport(end_iata):
         return None
@@ -49,7 +53,7 @@ def find_route_least_connections(graph: FlightGraph, start_iata: str, end_iata:s
                 visited.add(neighbor_iata)
                 prev_path[neighbor_iata] = path
                 # Create a new path list appending the neighbor
-                queue.append((neighbor_iata, current_path + [neighbor_iata]))
+                queue.append((destination, current_path + [destination]))
 
     # Return None if the queue empties and no path is found
     return None
