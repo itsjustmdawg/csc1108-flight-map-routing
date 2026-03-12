@@ -471,3 +471,42 @@ def _find_route_astar_blocked(graph: FlightGraph, start_airport: Airport, end_ai
 
     # Return None if no path is found
     return None
+
+# A* Algorithm: return multiple routes
+def find_routes_astar(graph: FlightGraph, start_airport: Airport, end_airport: Airport) -> list[Route]:
+    """
+    Finds a list of all available routes from the best Route to the worst using the A* algorithm.
+    It repeatedly finds the shortest path and then blocks an edge to find the next best alternative.
+    """
+    routes = []
+    blocked_edges = set()
+    seen_signatures = set()
+
+    while True:
+        # Attempt to find the optimal route given the current set of blocked edges
+        route = _find_route_astar_blocked(graph, start_airport, end_airport, blocked_edges)
+
+        # If no route is found, we have exhausted all options
+        if route is None:
+            break
+
+        # Create a unique signature for the route based on the sequence of flight paths
+        # This helps in detecting if we found a duplicate route (e.g. via different internal calculations)
+        signature = tuple((p.source, p.destination) for p in route.paths)
+
+        if signature in seen_signatures:
+            break
+
+        seen_signatures.add(signature)
+        routes.append(route)
+
+        # Block the last edge of the current route to force the algorithm to find a different path in the next iteration
+        if route.paths:
+            # We block the tuple (source, destination) of the last path segment
+            edge_to_block = (route.paths[-1].source, route.paths[-1].destination)
+            blocked_edges.add(edge_to_block)
+        else:
+            break
+
+    # Return the list of found routes, sorted from best to worst
+    return routes
