@@ -4,7 +4,7 @@
 flight-routing-project/
 # Project Directory
 
-```text
+
 flight-routing-project/
 ├── data/
 │   └── airline_routes.json   # Your Jonty dataset
