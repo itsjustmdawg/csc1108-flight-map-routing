@@ -17,8 +17,8 @@ def load_flight_data(filepath):
         name: str = airport_value["name"]
         city: str = airport_value["city_name"]
         country: str = airport_value["country"]
-        latitude: float = airport_value["latitude"]
-        longitude: float = airport_value["longitude"]
+        latitude: float = float(airport_value["latitude"] or 0.0)
+        longitude: float = float(airport_value["longitude"] or 0.0)
         timezone: str = airport_value["timezone"]
 
         airport = Airport(
