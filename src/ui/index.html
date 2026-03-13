@@ -33,6 +33,7 @@
 		</header>
 
 		<div class="app">
+            <!-- Sidebar -->
 			<div class="sidebar">
 				<p class="section-label">// ROUTE SEARCH</p>
 
@@ -155,7 +156,52 @@
 			</div>
 		</div>
 
-		<footer>CSC1108 · DSA Project</footer>
+        <!-- Placeholder route options - to be dynamically generated based on search results -->
+		<section class="route-bar" aria-label="Available routes">
+			<p class="route-bar-title">Choose a route</p>
+			<div class="route-bar-list" role="listbox" aria-label="Route options">
+				<button
+					class="route-option active"
+					type="button"
+					data-route-option="route_1"
+					aria-pressed="true"
+				>
+					<span class="route-option-name">Route 1</span>
+					<span class="route-option-detail">9800 km · 13h 40m</span>
+					<span class="route-option-detail">2 stops · $720</span>
+				</button>
+				<button
+					class="route-option"
+					type="button"
+					data-route-option="route_2"
+					aria-pressed="false"
+				>
+					<span class="route-option-name">Route 2</span>
+					<span class="route-option-detail">10120 km · 14h 10m</span>
+					<span class="route-option-detail">1 stop · $760</span>
+				</button>
+				<button
+					class="route-option"
+					type="button"
+					data-route-option="route_3"
+					aria-pressed="false"
+				>
+					<span class="route-option-name">Route 3</span>
+					<span class="route-option-detail">10740 km · 15h 20m</span>
+					<span class="route-option-detail">0 stops · $890</span>
+				</button>
+				<button
+					class="route-option"
+					type="button"
+					data-route-option="route_4"
+					aria-pressed="false"
+				>
+					<span class="route-option-name">Route 4</span>
+					<span class="route-option-detail">9420 km · 16h 00m</span>
+					<span class="route-option-detail">3 stops · $640</span>
+				</button>
+			</div>
+		</section>
 
 		<script
 			src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

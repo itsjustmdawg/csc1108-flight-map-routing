@@ -198,6 +198,8 @@ function updateMarkerForInput(inputElement) {
 // Filter button logic
 const filterButtons = document.querySelectorAll(".filter-option");
 let selectedFilter = "shortest_distance";
+const routeOptionButtons = document.querySelectorAll(".route-option");
+let selectedRouteOption = "route_1";
 
 const originInput = document.getElementById("origin");
 const destinationInput = document.getElementById("destination");
@@ -223,6 +225,19 @@ filterButtons.forEach((button) => {
 		button.classList.add("active");
 		button.setAttribute("aria-pressed", "true");
 		selectedFilter = button.dataset.filter;
+	});
+});
+
+routeOptionButtons.forEach((button) => {
+	button.addEventListener("click", () => {
+		routeOptionButtons.forEach((btn) => {
+			btn.classList.remove("active");
+			btn.setAttribute("aria-pressed", "false");
+		});
+
+		button.classList.add("active");
+		button.setAttribute("aria-pressed", "true");
+		selectedRouteOption = button.dataset.routeOption;
 	});
 });
 
