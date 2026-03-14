@@ -1,7 +1,8 @@
 from collections import deque
 import heapq  # used by Dijkstra's to implement a priority queue for selecting the smallest distance node
 
-from src.adt import FlightGraph, Airport, Route
+from adt import FlightGraph, Airport, Route
+from utils import calculate_haversine_distance
 
 # BFS
 def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end_airport: Airport) -> Route | None:
@@ -388,4 +389,124 @@ def find_routes_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, 
         else:
             break
 
+    return routes
+
+# Internal helper function for A* Algorithm
+def _find_route_astar_blocked(graph: FlightGraph, start_airport: Airport, end_airport: Airport, blocked_edges: set = None) -> Route | None:
+    """
+    Finds the optimal route between two airports using the A* algorithm
+    while ignoring blocked edges.
+    """
+    if blocked_edges is None:
+        blocked_edges = set()
+
+    start_iata = start_airport.iata
+    end_iata = end_airport.iata
+
+    # Initialise the heuristic (h_score) for the start node using Haversine distance to the destination
+    # h(n) = distance from node n to target
+    h_start = calculate_haversine_distance(start_airport.latitude, start_airport.longitude, end_airport.latitude, end_airport.longitude)
+
+    # Priority queue stores tuples of (f_score, iata_code)
+    # f_score = g_score + h_score. We order the queue by f_score to explore the most promising paths first.
+    pq = [(h_start, start_iata)]
+
+    # Dictionary storing the cheapest cost from start to a node (g_score)
+    # Default is infinity, start node is 0
+    g_score = {start_iata: 0}
+
+    # Dictionary storing the Path object used to reach each airport (used for reconstructing the route later)
+    prev_path = {}
+
+    # Set to keep track of visited nodes to avoid processing them multiple times (optimization for consistent heuristics)
+    visited = set()
+
+    while pq:
+        # Pop the node with the lowest f_score from the priority queue
+        current_f, current_iata = heapq.heappop(pq)
+
+        # If the destination is reached, reconstruct the path from start to end
+        if current_iata == end_iata:
+            route = _reconstruct_path(prev_path, start_iata, end_iata)
+            if route:
+                # As requested, force the price to 0.0 for now
+                route.price = 0.0
+            return route
+
+        # Optimization: If we have already visited (expanded) this node, skip it
+        if current_iata in visited:
+            continue
+        visited.add(current_iata)
+
+        # Get the g_score of the current node
+        current_g = g_score.get(current_iata, float('inf'))
+
+        # Explore all valid flight paths (neighbors) from the current airport
+        for path in graph.get_neighbours(current_iata):
+            neighbor_iata = path.destination
+
+            # Skip this path if it is in the blocked_edges set (used for finding alternative routes)
+            if (path.source, path.destination) in blocked_edges:
+                continue
+
+            # Calculate the tentative g_score (current cost + distance of this flight segment)
+            tentative_g = current_g + path.distance_km
+
+            # If this path is better than any previously known path to the neighbor
+            if tentative_g < g_score.get(neighbor_iata, float('inf')):
+                # Update the g_score for the neighbor
+                g_score[neighbor_iata] = tentative_g
+                # Record the path used to reach this neighbor for reconstruction
+                prev_path[neighbor_iata] = path
+
+                # Calculate the heuristic (h_score) for the neighbor: distance from neighbor to destination
+                neighbor_airport = graph.airports[neighbor_iata]
+                h_neighbor = calculate_haversine_distance(neighbor_airport.latitude, neighbor_airport.longitude, end_airport.latitude, end_airport.longitude)
+
+                # Calculate f_score = g_score + h_score
+                f_neighbor = tentative_g + h_neighbor
+
+                # Add the neighbor to the priority queue with its new f_score
+                heapq.heappush(pq, (f_neighbor, neighbor_iata))
+
+    # Return None if no path is found
+    return None
+
+# A* Algorithm: return multiple routes
+def find_routes_astar(graph: FlightGraph, start_airport: Airport, end_airport: Airport) -> list[Route]:
+    """
+    Finds a list of all available routes from the best Route to the worst using the A* algorithm.
+    It repeatedly finds the shortest path and then blocks an edge to find the next best alternative.
+    """
+    routes = []
+    blocked_edges = set()
+    seen_signatures = set()
+
+    while True:
+        # Attempt to find the optimal route given the current set of blocked edges
+        route = _find_route_astar_blocked(graph, start_airport, end_airport, blocked_edges)
+
+        # If no route is found, we have exhausted all options
+        if route is None:
+            break
+
+        # Create a unique signature for the route based on the sequence of flight paths
+        # This helps in detecting if we found a duplicate route (e.g. via different internal calculations)
+        signature = tuple((p.source, p.destination) for p in route.paths)
+
+        if signature in seen_signatures:
+            break
+
+        seen_signatures.add(signature)
+        routes.append(route)
+
+        # Block the last edge of the current route to force the algorithm to find a different path in the next iteration
+        if route.paths:
+            # We block the tuple (source, destination) of the last path segment
+            edge_to_block = (route.paths[-1].source, route.paths[-1].destination)
+            blocked_edges.add(edge_to_block)
+        else:
+            break
+
+    # Return the list of found routes, sorted from best to worst
     return routes
