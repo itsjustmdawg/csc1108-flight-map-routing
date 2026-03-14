@@ -347,7 +347,6 @@ function wireSearchableDropdown(
 
 		clearButtonElement.addEventListener("click", (event) => {
 			event.preventDefault();
-			event.stopPropagation();
 			clearAirportSelection(
 				inputElement,
 				optionsElement,
