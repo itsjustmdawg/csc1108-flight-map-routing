@@ -52,7 +52,6 @@ function flipTile(tileIndex, targetChar, color, step, totalSteps, resolve) {
 	const bottomText = tile.querySelector(".solari-bottom span");
 	const flap = tile.querySelector(".solari-flap");
 	const flapText = flap.querySelector("span");
-
 	const isLast = step >= totalSteps;
 	const currentChar = isLast
 		? targetChar
@@ -68,7 +67,6 @@ function flipTile(tileIndex, targetChar, color, step, totalSteps, resolve) {
 	flap.style.animation = "none";
 	flap.offsetHeight; // reflow
 	flap.style.animation = "flip 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards";
-
 	if (!isLast) {
 		setTimeout(
 			() =>
@@ -248,6 +246,28 @@ function showOptions(container) {
 	container.hidden = false;
 }
 
+function updateClearButtonVisibility(inputElement, clearButtonElement) {
+	if (!clearButtonElement) {
+		return;
+	}
+
+	const hasValue = inputElement.value.trim() !== "";
+	clearButtonElement.hidden = !hasValue;
+}
+
+function clearAirportSelection(
+	inputElement,
+	optionsElement,
+	clearButtonElement,
+) {
+	inputElement.value = "";
+	inputElement.dataset.airportCode = "";
+	updateMarkerForInput(inputElement);
+	renderFilteredOptions(inputElement, optionsElement);
+	updateClearButtonVisibility(inputElement, clearButtonElement);
+	inputElement.focus();
+}
+
 function createAirportOptionButton(airport, inputElement, optionsElement) {
 	const optionButton = document.createElement("button");
 	optionButton.type = "button";
@@ -269,6 +289,10 @@ function createAirportOptionButton(airport, inputElement, optionsElement) {
 		inputElement.dataset.airportCode = airport.code;
 		hideOptions(optionsElement);
 		updateMarkerForInput(inputElement);
+
+		const clearButtonElement =
+			inputElement.parentElement?.querySelector(".dropdown-clear");
+		updateClearButtonVisibility(inputElement, clearButtonElement);
 	});
 
 	return optionButton;
@@ -313,14 +337,46 @@ function wireSearchableDropdown(
 	optionsElement,
 	containerElement,
 ) {
+	const clearButtonElement =
+		containerElement.querySelector(".dropdown-clear");
+
+	if (clearButtonElement) {
+		clearButtonElement.setAttribute("role", "button");
+		clearButtonElement.setAttribute("tabindex", "0");
+		clearButtonElement.setAttribute("aria-label", "Clear selected airport");
+
+		clearButtonElement.addEventListener("click", (event) => {
+			event.preventDefault();
+			clearAirportSelection(
+				inputElement,
+				optionsElement,
+				clearButtonElement,
+			);
+		});
+
+		clearButtonElement.addEventListener("keydown", (event) => {
+			if (event.key === "Enter" || event.key === " ") {
+				event.preventDefault();
+				event.stopPropagation();
+				clearAirportSelection(
+					inputElement,
+					optionsElement,
+					clearButtonElement,
+				);
+			}
+		});
+	}
+
 	inputElement.addEventListener("focus", () => {
 		renderFilteredOptions(inputElement, optionsElement);
+		updateClearButtonVisibility(inputElement, clearButtonElement);
 	});
 
 	inputElement.addEventListener("input", () => {
 		inputElement.dataset.airportCode = "";
 		updateMarkerForInput(inputElement);
 		renderFilteredOptions(inputElement, optionsElement);
+		updateClearButtonVisibility(inputElement, clearButtonElement);
 	});
 
 	inputElement.addEventListener("keydown", (event) => {
@@ -334,6 +390,8 @@ function wireSearchableDropdown(
 			hideOptions(optionsElement);
 		}
 	});
+
+	updateClearButtonVisibility(inputElement, clearButtonElement);
 }
 
 function populateAirportDropdowns(airports) {
@@ -400,6 +458,13 @@ swapButton.addEventListener("click", () => {
 
 	updateMarkerForInput(originInput);
 	updateMarkerForInput(destinationInput);
+
+	const originClearButton =
+		originInput.parentElement?.querySelector(".dropdown-clear");
+	const destinationClearButton =
+		destinationInput.parentElement?.querySelector(".dropdown-clear");
+	updateClearButtonVisibility(originInput, originClearButton);
+	updateClearButtonVisibility(destinationInput, destinationClearButton);
 });
 
 wireSearchableDropdown(originInput, originOptions, originContainer);
