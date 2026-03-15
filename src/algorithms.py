@@ -1,8 +1,8 @@
 from collections import deque
 import heapq  # used by Dijkstra's to implement a priority queue for selecting the smallest distance node
 
-from adt import FlightGraph, Airport, Route
-from utils import calculate_haversine_distance
+from src.adt import FlightGraph, Airport, Route
+from src.utils import calculate_haversine_distance
 
 # BFS
 def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end_airport: Airport) -> Route | None:
@@ -13,7 +13,7 @@ def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end
     graph (FlightGraph): The data structure of the cleaned JSON data.
     start_iata (str): The 3-letter IATA code of the starting airport.
     end_iata (str): The 3-letter IATA code of the destination airport.
-    
+
     Returns:
     list: A list of IATA codes representing the shortest path, or None if no path exists.
     """
@@ -21,7 +21,7 @@ def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end
     # Extract iata from Airport class
     start_iata: str = start_airport.iata
     end_iata: str = end_airport.iata
-    
+
     # Validate if iata is in graph dataset
     if not graph.has_airport(start_iata) or not graph.has_airport(end_iata):
         return None
@@ -39,7 +39,7 @@ def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end
         # If the destination is reached, return the path
         if current_iata == end_iata:
             return current_path
-        
+
         # Iterate through neighbouring nodes from the current airport
         for route in graph.get_neighbours(current_iata):
 
@@ -59,7 +59,7 @@ def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end
     return None
 
 # Internal helper function for Dijkstra's Algorithm
-def _reconstruct_path(prev_path: dict, start: str, end: str):
+def _reconstruct_path(prev_path: dict, start: str, end: str) -> Route | None:
     """
     Reconstructs the route from start to end using the prev dictionary.
 
@@ -81,7 +81,7 @@ def _reconstruct_path(prev_path: dict, start: str, end: str):
         # If no path exists, the route reconstruction fails
         if path is None:
             return None
-        
+
         # Add the Path object to the route list
         route_paths.append(path)
 
@@ -190,7 +190,7 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
     return None
 
 # Dijkstra: return multiple routes
-def find_routes_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode = "shortest") -> list[Route]:
+def find_routes_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode = "shortest") -> list[Route] | None:
     """
     Finds multiple route options between two airports using repeated Dijkstra runs.
 
@@ -219,7 +219,7 @@ def find_routes_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mod
         # Stop when no more routes can be found
         if route is None:
             return None
-        
+
         # Build a unique signature for the route
         signature = tuple((path.source, path.destination) for path in route.paths)
 
@@ -244,7 +244,7 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
     """
     Finds the optimal route between two airports using the Bellman-Ford algorithm
     while ignoring blocked edges. (new algorithm)
-    
+
     Parameters:
     graph       (FlightGraph): The cleaned flight graph.
     start_iata  (str): The 3-letter IATA code of the starting airport.
@@ -299,7 +299,7 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
                     weight = path.price
                 else:
                     raise ValueError("mode must be 'shortest', 'fastest', or 'cheapest'")
-                
+
                 # Calculate the new cost through the current airport
                 new_cost = dist[airport] + weight
 
@@ -308,7 +308,7 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
                     dist[neighbour] = new_cost
                     prev_path[neighbour] = path
                     updated = True
-            
+
         # Stop early if no updates were made in this round
         if not updated:
             break
@@ -336,7 +336,7 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
 
             if dist[airport] + weight < dist.get(neighbour, float("inf")):
                 raise ValueError("Graph contains a negative-weight cycle")
-            
+
     # If destination was never reached, return None
     if end_iata != start_iata and end_iata not in prev_path:
         return None
@@ -348,7 +348,7 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
 def find_routes_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest") -> list[Route]:
     """
     Finds multiple optimal route between two airports using the Bellman-Ford algorithm.
-    
+
     Parameters:
     graph       (FlightGraph): The cleaned flight graph.
     start_iata  (str): The 3-letter IATA code of the starting airport.
@@ -413,7 +413,7 @@ def _find_route_astar_blocked(graph: FlightGraph, start_airport: Airport, end_ai
 
     # Dictionary storing the cheapest cost from start to a node (g_score)
     # Default is infinity, start node is 0
-    g_score = {start_iata: 0}
+    g_score = { start_iata: 0 }
 
     # Dictionary storing the Path object used to reach each airport (used for reconstructing the route later)
     prev_path = {}

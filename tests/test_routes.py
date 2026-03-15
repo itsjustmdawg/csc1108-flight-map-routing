@@ -19,11 +19,11 @@ def test():
 
     # NOTE: implement input validation for shortest and cheapest (fastest)
     # dijkstra_route: Route = find_route_dijkstra(graph, "SIG", "CPX", mode=mode)
-    dijkstra_route: Route = find_routes_dijkstra(graph, "SIG", "CPX", mode=mode)
+    dijkstra_route: list[Route] | None = find_routes_dijkstra(graph, "SIG", "CPX", mode=mode)
 
     # NOTE: Bellman-Ford alternative shortest path algorithm
     # bellman_route: Route = find_route_bellmanFord(graph, "SIG", "CPX", mode=mode)
-    bellman_route: Route = find_routes_bellmanFord(graph, "SIG", "CPX", mode=mode)
+    bellman_route: list[Route] | None = find_routes_bellmanFord(graph, "SIG", "CPX", mode=mode)
 
     """
     print(f"BFS Result: {bfs_route}")
@@ -73,7 +73,7 @@ def test():
             print(f"Bellman-Ford route distance: {total_km} km | Time: {total_min} minutes | Price: ${total_price:.2f}")
     else:
         print("No routes found.")
-    
+
     """
     # Calculate total bellman-ford distance
     # NOTE: Convert to helper function
@@ -113,7 +113,4 @@ def test():
 
 if __name__ == "__main__":
     test()
-
-
-
 
