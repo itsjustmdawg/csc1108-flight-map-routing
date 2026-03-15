@@ -1,9 +1,12 @@
-from src.adt import FlightGraph, Route
+from src.adt import FlightGraph, Route, Airport
 from src.data_loader import load_flight_data
 from src.algorithms import find_routes_dijkstra, find_route_least_connections, find_routes_bellmanFord
 
 def test():
     graph: FlightGraph = load_flight_data("data/airline_routes.json")
+
+    start_airport: Airport = graph.airports["SIG"]
+    end_airport: Airport = graph.airports["CPX"]
 
     print(graph)
 
@@ -14,15 +17,15 @@ def test():
 
     # NOTE: To use list[Route] for type safety
     # bfs_route: Route = find_route_least_connections(graph, "SIG", "CPX")
-    bfs_route: Route = find_route_least_connections(graph, "SIG", "CPX")
+    bfs_route: list[Route] | None = find_route_least_connections(graph, start_airport, end_airport)
 
     # NOTE: implement input validation for shortest and cheapest (fastest)
     # dijkstra_route: Route = find_route_dijkstra(graph, "SIG", "CPX", mode=mode)
-    dijkstra_route: Route = find_routes_dijkstra(graph, "SIG", "CPX", mode=mode)
+    dijkstra_route: list[Route] = find_routes_dijkstra(graph, start_airport, end_airport, mode=mode)
 
     # NOTE: Bellman-Ford alternative shortest path algorithm
     # bellman_route: Route = find_route_bellmanFord(graph, "SIG", "CPX", mode=mode)
-    bellman_route: Route = find_routes_bellmanFord(graph, "SIG", "CPX", mode=mode)
+    bellman_route: list[Route] = find_routes_bellmanFord(graph, start_airport, end_airport, mode=mode)
 
     print(f"BFS Result: {bfs_route}")
     # Calculate total bfs distance

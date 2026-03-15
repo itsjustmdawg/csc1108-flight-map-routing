@@ -121,6 +121,7 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
     Returns:
     Route | None: A list of airport IATA codes representing the optimal path, or None if no path exists.
     """
+
     if blocked_edges is None:
         blocked_edges = set()
 
@@ -187,7 +188,7 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
     return None
 
 # Dijkstra: return multiple routes
-def find_routes_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode = "shortest") -> list[Route]:
+def find_routes_dijkstra(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode = "shortest") -> list[Route]:
     """
     Finds multiple route options between two airports using repeated Dijkstra runs.
 
@@ -200,6 +201,9 @@ def find_routes_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mod
     Returns:
     list[Route]: A list of route options from best to less optimal.
     """
+    start_iata = start_airport.iata
+    end_iata = end_airport.iata
+
     routes: list[Route] = []
     blocked_edges: set[tuple[str, str]] = set()
     seen_signatures: set[tuple[tuple[str, str], ...]] = set()
@@ -229,8 +233,18 @@ def find_routes_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mod
 
         # Blocked one edge from the current route to force a different alternative
         if route.paths:
-            edge_to_block = (route.paths[-1].source, route.paths[-1].destination)
-            blocked_edges.add(edge_to_block)
+            blocked_new_edge = False
+
+            for path in route.paths:
+                edge_to_block = (path.source, path.destination)
+
+                if edge_to_block not in blocked_edges:
+                    blocked_edges.add(edge_to_block)
+                    blocked_new_edge = True
+                    break
+
+            if not blocked_new_edge:
+                break
         else:
             break
 
@@ -252,6 +266,7 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
     Returns:
     Route: A Route object representing the optimal path, or None if no path exists. 
     """
+
     if blocked_edges is None:
         blocked_edges = set()
 
@@ -343,7 +358,7 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
     return _reconstruct_path(prev_path, start_iata, end_iata)
 
 # Bellman-Ford: returns multiple routes
-def find_routes_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest") -> list[Route]:
+def find_routes_bellmanFord(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode="shortest") -> list[Route]:
     """
     Finds multiple optimal route between two airports using the Bellman-Ford algorithm.
 
@@ -356,6 +371,8 @@ def find_routes_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, 
     Returns:
     list[Route]: A list of route options from best to less optimal. 
     """
+    start_iata = start_airport.iata
+    end_iata = end_airport.iata
     routes: list[Route] = []
     blocked_edges: set[tuple[str, str]] = set()
     seen_signatures: set[tuple[tuple[str, str], ...]] = set()
@@ -384,8 +401,18 @@ def find_routes_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, 
 
         # block one edge to force alternative route
         if route.paths:
-            edge_to_block = (route.paths[-1].source, route.paths[-1].destination)
-            blocked_edges.add(edge_to_block)
+            blocked_new_edge = False
+
+            for path in route.paths:
+                edge_to_block = (path.source, path.destination)
+
+                if edge_to_block not in blocked_edges:
+                    blocked_edges.add(edge_to_block)
+                    blocked_new_edge = True
+                    break
+
+            if not blocked_new_edge:
+                break
         else:
             break
 
