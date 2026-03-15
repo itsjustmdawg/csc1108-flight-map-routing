@@ -392,7 +392,7 @@ def find_routes_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, 
     return routes
 
 # Internal helper function for A* Algorithm
-def _find_route_astar_blocked(graph: FlightGraph, start_airport: Airport, end_airport: Airport, blocked_edges: set = None) -> Route | None:
+def _find_route_astar_blocked(graph: FlightGraph, start_airport: Airport, end_airport: Airport, blocked_edges: set) -> Route | None:
     """
     Finds the optimal route between two airports using the A* algorithm
     while ignoring blocked edges.
@@ -413,7 +413,7 @@ def _find_route_astar_blocked(graph: FlightGraph, start_airport: Airport, end_ai
 
     # Dictionary storing the cheapest cost from start to a node (g_score)
     # Default is infinity, start node is 0
-    g_score = { start_iata: 0 }
+    g_score: dict[str, int | float] = { start_iata: 0 }
 
     # Dictionary storing the Path object used to reach each airport (used for reconstructing the route later)
     prev_path = {}
