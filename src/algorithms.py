@@ -188,7 +188,7 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
     return None
 
 # Dijkstra: return multiple routes
-def find_routes_dijkstra(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode = "shortest") -> list[Route]:
+def find_routes_dijkstra(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode = "shortest", max_routes: int = 4) -> list[Route]:
     """
     Finds multiple route options between two airports using repeated Dijkstra runs.
 
@@ -208,7 +208,7 @@ def find_routes_dijkstra(graph: FlightGraph, start_airport: Airport, end_airport
     blocked_edges: set[tuple[str, str]] = set()
     seen_signatures: set[tuple[tuple[str, str], ...]] = set()
 
-    while True:
+    while len(routes) < max_routes:
         route = _find_route_dijkstra_blocked(
             graph,
             start_iata,
@@ -358,7 +358,7 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
     return _reconstruct_path(prev_path, start_iata, end_iata)
 
 # Bellman-Ford: returns multiple routes
-def find_routes_bellmanFord(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode="shortest") -> list[Route]:
+def find_routes_bellmanFord(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode="shortest", max_routes: int = 4) -> list[Route]:
     """
     Finds multiple optimal route between two airports using the Bellman-Ford algorithm.
 
@@ -377,7 +377,7 @@ def find_routes_bellmanFord(graph: FlightGraph, start_airport: Airport, end_airp
     blocked_edges: set[tuple[str, str]] = set()
     seen_signatures: set[tuple[tuple[str, str], ...]] = set()
 
-    while True:
+    while len(routes) < max_routes:
         route = _find_route_bellmanFord_blocked(
             graph,
             start_iata,

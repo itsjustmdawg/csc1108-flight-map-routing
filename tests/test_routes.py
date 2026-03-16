@@ -1,62 +1,40 @@
-import json
 from src.adt import FlightGraph, Route, Airport
 from src.data_loader import load_flight_data
 from src.algorithms import find_routes_dijkstra, find_route_least_connections, find_routes_bellmanFord
 
-# Helper function to calculate route
-def calculate_route_totals(route: Route) -> dict:
-    total_km = 0
-    total_min = 0
-    total_price = 0.0
-
-    for path in route.paths:
-        total_km += path.distance_km
-        total_min += path.duration_min
-        total_price += path.price
-
-    return {
-        "distance_km": total_km,
-        "duration_min": total_min,
-        "price": total_price
-    }
-
-# Helper function to extract coordinates from Route
-def route_to_airport_coordinates(route: Route, graph: FlightGraph) -> list[dict]:
-    airports_data = []
-
+def print_route(route: Route, graph: FlightGraph):
+    """
+    Prints the airports in a route with coordinates.
+    """
     if not route.paths:
-        return airports_data
+        print("Empty route")
+        return
 
-    # first airport = source of first path
-    start_iata = route.paths[0].source
-    start_airport = graph.airports[start_iata]
+    airports = [route.paths[0].source]
 
-    airports_data.append({
-        "iata": start_airport.iata,
-        "name": start_airport.name,
-        "latitude": float(start_airport.latitude),
-        "longitude": float(start_airport.longitude)
-    })
-
-    # remaining airports = destination of each path
     for path in route.paths:
-        next_iata = path.destination
-        next_airport = graph.airports[next_iata]
+        airports.append(path.destination)
 
-        airports_data.append({
-            "iata": next_airport.iata,
-            "name": next_airport.name,
-            "latitude": float(next_airport.latitude),
-            "longitude": float(next_airport.longitude)
-        })
+    # Print route path
+    print(" -> ".join(airports))
 
-    return airports_data
+    # Print coordinates for each airport
+    print("Coordinates:")
+    for code in airports:
+        airport = graph.airports[code]
+        print(f"{code}: ({airport.latitude}, {airport.longitude})")
+
+    print(
+        f"Distance: {route.distance_km} km | "
+        f"Time: {route.duration_min} min | "
+        f"Price: ${route.price:.2f}"
+    )
 
 def test():
     graph: FlightGraph = load_flight_data("data/airline_routes.json")
 
-    start_airport: Airport = graph.airports["SIG"]
-    end_airport: Airport = graph.airports["CPX"]
+    start_airport: Airport = graph.airports["AAE"]
+    end_airport: Airport = graph.airports["CDG"]
 
     print(graph)
 
@@ -64,18 +42,18 @@ def test():
     mode = "shortest"
 
     print(f"\nOptimisation Mode: {mode.upper()}")
-
+                
     # NOTE: To use list[Route] for type safety
     # bfs_route: Route = find_route_least_connections(graph, "SIG", "CPX")
     bfs_route: list[Route] | None = find_route_least_connections(graph, start_airport, end_airport)
 
     # NOTE: implement input validation for shortest and cheapest (fastest)
     # dijkstra_route: Route = find_route_dijkstra(graph, "SIG", "CPX", mode=mode)
-    dijkstra_route: list[Route] = find_routes_dijkstra(graph, start_airport, end_airport, mode=mode)
+    dijkstra_routes: list[Route] = find_routes_dijkstra(graph, start_airport, end_airport, mode=mode, max_routes=4)
 
     # NOTE: Bellman-Ford alternative shortest path algorithm
     # bellman_route: Route = find_route_bellmanFord(graph, "SIG", "CPX", mode=mode)
-    bellman_route: list[Route] = find_routes_bellmanFord(graph, start_airport, end_airport, mode=mode)
+    bellman_routes: list[Route] = find_routes_bellmanFord(graph, start_airport, end_airport, mode=mode, max_routes=4)
 
     print(f"BFS Result: {bfs_route}")
     # Calculate total bfs distance
@@ -106,31 +84,11 @@ def test():
         print(f"\nDijkstra algo distance: {total_km}km | Time: {total_min} minutes | Price: ${total_price:.2f}")
     """
         
-    print(f"\Dijkstra Multiple Routes ({mode}) Result:")
-    dijkstra_output = []
-    if dijkstra_route:
-        for index, route in enumerate(dijkstra_route, start=1):
-            
-            totals = calculate_route_totals(route)
-            coordinates = route_to_airport_coordinates(route, graph)
-            
-            print(f"\nRoute Option {index}: {route}")
-            print(
-                f"Dijkstra route distance: {totals['distance_km']} km | "
-                f"Time: {totals['duration_min']} minutes | "
-                f"Price: ${totals['price']:.2f}"
-            )
-
-            dijkstra_output.append({
-                "route_option": index,
-                "algorithm": "dijkstra",
-                "mode": mode,
-                "summary": totals,
-                "airports": coordinates
-            })
-
-    else:
-        print("No routes found.")
+    print(f"\nNumber of Dijkstra routes found: {len(dijkstra_routes)}")
+    print("\nDijkstra Routes:")
+    for i, route in enumerate(dijkstra_routes, start=1):
+        print(f"\nRoute {i}:")
+        print_route(route, graph)
     
     """
     # Calculate total bellman-ford distance
@@ -148,41 +106,15 @@ def test():
 
         print(f"\nBellman-Ford algo distance: {total_km} km | Time: {total_min} minutes | Price: ${total_price:.2f}")
     """
-    print(f"\nBellman-Ford Multiple Routes ({mode}) Result:")
-    bellman_output = []
-    if bellman_route:
-        for index, route in enumerate(bellman_route, start=1):
-            totals = calculate_route_totals(route)
-            coordinates = route_to_airport_coordinates(route, graph)
-
-            print(f"\nRoute Option {index}: {route}")
-            print(
-                f"Bellman-Ford route distance: {totals['distance_km']} km | "
-                f"Time: {totals['duration_min']} minutes | "
-                f"Price: ${totals['price']:.2f}"
-            )
-
-            bellman_output.append({
-                "route_option": index,
-                "algorithm": "bellman-ford",
-                "mode": mode,
-                "summary": totals,
-                "airports": coordinates
-            })
-
-    else:
-        print("No routes found.")
-
-    return {
-        # "BFS": bfs_output,
-        "dijkstra": dijkstra_output,
-        "bellman_ford": bellman_output
-    }
+    print(f"\nNumber of Bellman-Ford routes found: {len(bellman_routes)}")
+    print("\nBellman-Ford Routes:")
+    for i, route in enumerate(bellman_routes, start=1):
+        print(f"\nRoute {i}:")
+        print_route(route, graph)
 
 
 # For testing if algo works
 
 if __name__ == "__main__":
-    result = test()
-    print("\nReturned data for app.py:")
-    print(json.dumps(result, indent=4))     # this allows the returned output to look like airline_routes.json
+    test()
+
