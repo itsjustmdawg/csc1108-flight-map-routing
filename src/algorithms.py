@@ -1,7 +1,7 @@
 from collections import deque
 import heapq  # used by Dijkstra's to implement a priority queue for selecting the smallest distance node
 
-from src.adt import FlightGraph, Airport, Route
+from src.adt import FlightGraph, Airport, Route, Path
 from src.utils import calculate_haversine_distance
 
 # BFS
@@ -119,8 +119,9 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
     mode        (str): "shortest" for distance, "fastest" for duration, "cheapest" for price
 
     Returns:
-    list: A list of airport IATA codes representing the optimal path, or None if no path exists.
+    Route | None: A list of airport IATA codes representing the optimal path, or None if no path exists.
     """
+
     if blocked_edges is None:
         blocked_edges = set()
 
@@ -129,16 +130,13 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
         return None
 
     # Dictionary storing the shortest known cost from the start airport
-    dist = {start_iata: 0}
-
-    # Dictionary used to reconstruct the final path
-    prev = {start_iata: None}
+    dist: dict[str, float] = {start_iata: 0.0}
 
     # Dictionary to store the Path object used to reach a given airport
-    prev_path = {}
+    prev_path: dict[str, Path] = {}
 
     # Priority queue storing tuples of (current_cost, airport)
-    pq = [(0, start_iata)]
+    pq: list[tuple[float, str]] = [(0.0, start_iata)]
 
     while pq:
         # Remove the airport with the smallest known cost from the priority queue
@@ -158,15 +156,18 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
             # Get the destination airport code of the neighbouring airport
             neighbour = path.destination
 
+            if (path.source, path.destination) in blocked_edges:
+                continue
+
             # Determine edge weight based on selected optimisation mode
             if mode == "shortest":
-                weight = path.distance_km
+                weight = float(path.distance_km)
             elif mode == "fastest":
-                weight = path.duration_min
+                weight = float(path.duration_min)
             elif mode == "cheapest":
-                weight = path.price
+                weight = float(path.price)
             else:
-                raise ValueError("mode must be 'shortest', 'fastest', 'cheapest'")
+                raise ValueError("mode must be 'shortest', 'fastest', or 'cheapest'")
 
             # Calculate new accumulated cost
             new_cost = cur_cost + weight
@@ -176,9 +177,6 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
 
                 # Update the shortest known cost to reach the neighbouring airport
                 dist[neighbour] = new_cost
-
-                # Record the previous airport used to reach this neighbour
-                prev[neighbour] = cur_airport
 
                 # Record the Path object used to reach this neighbour
                 prev_path[neighbour] = path
@@ -190,7 +188,7 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
     return None
 
 # Dijkstra: return multiple routes
-def find_routes_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mode = "shortest") -> list[Route] | None:
+def find_routes_dijkstra(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode = "shortest", max_routes: int = 4) -> list[Route]:
     """
     Finds multiple route options between two airports using repeated Dijkstra runs.
 
@@ -203,11 +201,14 @@ def find_routes_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mod
     Returns:
     list[Route]: A list of route options from best to less optimal.
     """
-    routes = []
-    blocked_edges = set()
-    seen_signatures = set()
+    start_iata = start_airport.iata
+    end_iata = end_airport.iata
 
-    while True:
+    routes: list[Route] = []
+    blocked_edges: set[tuple[str, str]] = set()
+    seen_signatures: set[tuple[tuple[str, str], ...]] = set()
+
+    while len(routes) < max_routes:
         route = _find_route_dijkstra_blocked(
             graph,
             start_iata,
@@ -218,7 +219,7 @@ def find_routes_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mod
 
         # Stop when no more routes can be found
         if route is None:
-            return None
+            break
 
         # Build a unique signature for the route
         signature = tuple((path.source, path.destination) for path in route.paths)
@@ -232,12 +233,23 @@ def find_routes_dijkstra(graph: FlightGraph, start_iata: str, end_iata: str, mod
 
         # Blocked one edge from the current route to force a different alternative
         if route.paths:
-            edge_to_block = (route.paths[-1].source, route.paths[-1].destination)
-            blocked_edges.add(edge_to_block)
+            blocked_new_edge = False
+
+            for path in route.paths:
+                edge_to_block = (path.source, path.destination)
+
+                if edge_to_block not in blocked_edges:
+                    blocked_edges.add(edge_to_block)
+                    blocked_new_edge = True
+                    break
+
+            if not blocked_new_edge:
+                break
         else:
             break
 
     return routes
+
 
 # Blocked-edge version of Bellman-Ford
 def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest", blocked_edges = None) -> Route | None:
@@ -254,8 +266,9 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
     Returns:
     Route: A Route object representing the optimal path, or None if no path exists. 
     """
+
     if blocked_edges is None:
-        return None
+        blocked_edges = set()
 
     # Validate if both airports exists in the graph
     if not graph.has_airport(start_iata) or not graph.has_airport(end_iata):
@@ -265,11 +278,11 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
     airports = graph.get_all_codes()
 
     # Dictionary storing the shortest known cost from the start airport
-    dist = {iata: float("inf") for iata in airports}
-    dist[start_iata] = 0
+    dist: dict[str, float] = {iata: float("inf") for iata in airports}
+    dist[start_iata] = 0.0
 
     # Dictionary storing the Path object used to reach each airport
-    prev_path = {}
+    prev_path: dict[str, Path] = {}
 
     # Relax all paths V - 1 times (for Bellman Ford's algorithm, we go through each airport and outgoing path to try to improve the shortest path)
     for _ in range(len(airports) - 1):
@@ -292,11 +305,11 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
 
                 # Determine edge weight based on selected mode
                 if mode == "shortest":
-                    weight = path.distance_km
+                    weight = float(path.distance_km)
                 elif mode == "fastest":
-                    weight = path.duration_min
+                    weight = float(path.duration_min)
                 elif mode == "cheapest":
-                    weight = path.price
+                    weight = float(path.price)
                 else:
                     raise ValueError("mode must be 'shortest', 'fastest', or 'cheapest'")
 
@@ -326,11 +339,11 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
             neighbour = path.destination
 
             if mode == "shortest":
-                weight = path.distance_km
+                weight = float(path.distance_km)
             elif mode == "fastest":
-                weight = path.duration_min
+                weight = float(path.duration_min)
             elif mode == "cheapest":
-                weight = path.price
+                weight = float(path.price)
             else:
                 raise ValueError("mode must be 'shortest', 'fastest', or 'cheapest'")
 
@@ -345,7 +358,7 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
     return _reconstruct_path(prev_path, start_iata, end_iata)
 
 # Bellman-Ford: returns multiple routes
-def find_routes_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest") -> list[Route]:
+def find_routes_bellmanFord(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode="shortest", max_routes: int = 4) -> list[Route]:
     """
     Finds multiple optimal route between two airports using the Bellman-Ford algorithm.
 
@@ -358,11 +371,13 @@ def find_routes_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, 
     Returns:
     list[Route]: A list of route options from best to less optimal. 
     """
-    routes = []
-    blocked_edges = set()
-    seen_signatures = set()
+    start_iata = start_airport.iata
+    end_iata = end_airport.iata
+    routes: list[Route] = []
+    blocked_edges: set[tuple[str, str]] = set()
+    seen_signatures: set[tuple[tuple[str, str], ...]] = set()
 
-    while True:
+    while len(routes) < max_routes:
         route = _find_route_bellmanFord_blocked(
             graph,
             start_iata,
@@ -370,12 +385,14 @@ def find_routes_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, 
             mode=mode,
             blocked_edges=blocked_edges
         )
-
+        # Stop when no more routes can be found
         if route is None:
             break
-
+        
+        # Build a unique signature for the route
         signature = tuple((p.source, p.destination) for p in route.paths)
 
+        # Stop if the same route appears again
         if signature in seen_signatures:
             break
 
@@ -384,8 +401,18 @@ def find_routes_bellmanFord(graph: FlightGraph, start_iata: str, end_iata: str, 
 
         # block one edge to force alternative route
         if route.paths:
-            edge_to_block = (route.paths[-1].source, route.paths[-1].destination)
-            blocked_edges.add(edge_to_block)
+            blocked_new_edge = False
+
+            for path in route.paths:
+                edge_to_block = (path.source, path.destination)
+
+                if edge_to_block not in blocked_edges:
+                    blocked_edges.add(edge_to_block)
+                    blocked_new_edge = True
+                    break
+
+            if not blocked_new_edge:
+                break
         else:
             break
 
