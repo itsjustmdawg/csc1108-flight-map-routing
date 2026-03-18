@@ -1,13 +1,19 @@
 import json
 import webview
 import os
-from tests.test_routes import test
+import src.data_loader
+import src.algorithms
 
 class SkyPathApi:
+    
+    def __init__(self):
+        base_directory = os.path.dirname(__file__)
+        self.data_path = os.path.join(base_directory, "data", "airline_routes.json")
+        self.flight_graph = src.data_loader.load_flight_data(self.data_path)
+    
     def get_airports(self):
-        data_path = os.path.join(os.path.dirname(__file__), "data", "airline_routes.json")
 
-        with open(data_path, "r", encoding="utf-8") as file:
+        with open(self.data_path, "r", encoding="utf-8") as file:
             airports_data = json.load(file)
 
         airports = []
@@ -35,12 +41,84 @@ class SkyPathApi:
 
         airports.sort(key=lambda airport: airport["code"])
         return airports
+    
+    # def draw_route(self, src_code, dest_code):
+        
+    
+    def get_routes(self, src_code, dest_code, selected_filter, max_routes=4):
+        if not src_code or not dest_code:
+            return {"error": "Source and destination codes are required."}
+
+        if src_code == dest_code:
+            return {"error": "Source and destination cannot be the same."}
+
+        if src_code not in self.flight_graph.airports:
+            return {"error": f"Source airport '{src_code}' not found."}
+
+        if dest_code not in self.flight_graph.airports:
+            return {"error": f"Destination airport '{dest_code}' not found."}
+
+        # start_airport = self.flight_graph.airports[src_code]
+        # end_airport = self.flight_graph.airports[dest_code]
+        
+        if selected_filter == "shortest":
+            pass
+            # a* with distance heuristic
+        
+        if selected_filter == "cheapest":
+            # bellman ford with price as weight
+            pass
+        
+        if selected_filter == "fastest":
+            routes = src.algorithms._find_route_dijkstra_blocked(
+            self.flight_graph,
+            src_code,
+            dest_code,
+            mode=selected_filter
+        )
+            if routes is None:
+                routes = []
+            else:
+                routes = [routes]
+                
+            # Remove in future
+            for route in routes:
+                print(f"\n🛫 Route from {src_code} to {dest_code} (Fastest):")
+                print(f"  Total Duration: {route.duration_min} minutes")
+                print(f"  Total Distance: {route.distance_km} km")
+                print(f"  Total Price: ${route.price}")
+                print(f"  Flight Segments:")
+                for i, path in enumerate(route.paths, 1):
+                    print(f"    {i}. {path.source} → {path.destination} ({path.duration_min} min, {path.distance_km} km, ${path.price})")
+        
+        if selected_filter == "fewest_stops":
+            # bfs
+            pass
+        
+        serialised_routes = []
+        for route in routes:
+            serialised_routes.append(
+                {
+                    "total_distance": route.distance_km,
+                    "total_time": route.duration_min,
+                    "price": route.price,
+                    "paths": [
+                        {
+                            "source": p.source,
+                            "destination": p.destination,
+                            "distance_km": p.distance_km,
+                            "duration_min": p.duration_min,
+                            "price": p.price
+                        }
+                        for p in route.paths
+                    ]
+                }
+            )
+        return {"ok": True, "error": None, "routes": serialised_routes}
 
 if __name__ == '__main__':
 
     ui_path = os.path.join(os.path.dirname(__file__), "src", "ui", "index.html")
-
-    # test()
 
     webview.create_window(
         title = 'SkyPath - Flight Route Finder',

@@ -197,11 +197,12 @@ function updateMarkerForInput(inputElement) {
 
 // Filter button logic
 const filterButtons = document.querySelectorAll(".filter-option");
-let selectedFilter = "shortest_distance";
+// let selectedFilter = "shortest_distance";
 
 const originInput = document.getElementById("origin");
 const destinationInput = document.getElementById("destination");
 const swapButton = document.getElementById("swap-button");
+const findRoutesButton = document.getElementById("find-routes-button");
 const airportCountElement = document.getElementById("airport-count");
 const originOptions = document.getElementById("origin-options");
 const destinationOptions = document.getElementById("destination-options");
@@ -474,12 +475,60 @@ wireSearchableDropdown(
 	destinationContainer,
 );
 
+findRoutesButton.addEventListener("click", async () => {
+	const originAirport = originInput.dataset.airportCode || "";
+	const destinationAirport = destinationInput.dataset.airportCode || "";
+
+	if (!originAirport || !destinationAirport) {
+		alert("Please select both origin and destination airports.");
+		return;
+	}
+
+	if (
+		!(
+		window.pywebview &&
+		window.pywebview.api &&
+		window.pywebview.api.get_routes	
+		)
+	) {
+		console.error("Python API not available for route finding.");
+		alert("Route finding functionality is currently unavailable.");
+		return;
+	}
+
+	try {
+		const result = await window.pywebview.api.get_routes(
+			originAirport,
+			destinationAirport,
+			selectedFilter,
+			4
+		);
+		if (!result || !result.ok) {
+			console.error("Failed to retrieve routes:", result?.error);
+			alert("Failed to retrieve routes. Please try again.");
+			return;
+		}
+
+		console.log("Selected filter:", selectedFilter);
+		console.log("Route finding result:", result.routes);
+		
+		if (result.routes.length > 0) {
+			const firstRoute = result.routes[0];
+			console.log("First route details:", firstRoute);
+		} else {
+			console.log("No routes found for the selected airports.");
+		}
+	} catch (error) {
+		console.error("Error while finding routes:", error);
+	}
+});
+
 window.addEventListener("pywebviewready", loadAirports);
 
-if (
-	window.pywebview &&
-	window.pywebview.api &&
-	window.pywebview.api.get_airports
-) {
-	loadAirports();
-}
+// if (
+// 	window.pywebview &&
+// 	window.pywebview.api &&
+// 	window.pywebview.api.get_airports
+// ) {
+// 	loadAirports();
+// }
