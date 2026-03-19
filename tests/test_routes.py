@@ -24,6 +24,15 @@ def print_route(route: Route, graph: FlightGraph):
         airport = graph.airports[code]
         print(f"{code}: ({airport.latitude}, {airport.longitude})")
 
+    print("\nAirlines:")
+    for path in route.paths:
+        if path.airlines:
+            airline_names = [airline.name for airline in path.airlines]
+        else:
+            airline_names = ["Unknown"]
+
+        print(f"{path.source} -> {path.destination}: {', '.join(airline_names)}")
+
     print(
         f"Distance: {route.distance_km} km | "
         f"Time: {route.duration_min} min | "
