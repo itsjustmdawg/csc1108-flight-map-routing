@@ -517,3 +517,17 @@ footer {
 	letter-spacing: 2px;
 	pointer-events: none;
 }
+
+.airport-group-header {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #0284c7;
+    background-color: #f0f9ff;
+    border-top: 1px solid #e0f2fe;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
