@@ -299,13 +299,97 @@ select {
 	border-left: 1px solid #0284c7;
 }
 
-footer {
-	text-align: center;
-	padding: 10px;
+.route-bar {
+	padding: 10px 20px;
 	background: #e2e8f0;
-	font-size: 14px;
-	color: #1e293b;
 	border-top: 1px solid #0284c7;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 8px;
+}
+
+.route-bar-title {
+	margin: 0;
+	font-family: var(--font-title);
+	font-size: 10px;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: #0369a1;
+}
+
+.route-bar-list {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.route-option {
+	min-width: 0;
+	padding: 8px 10px;
+	border: 1px solid #0284c7;
+	background: #ffffff;
+	color: #0369a1;
+	text-align: left;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	font-family: var(--font-title);
+	font-size: 10px;
+	letter-spacing: 1px;
+	cursor: pointer;
+	transition:
+		background-color 0.2s ease,
+		color 0.2s ease,
+		box-shadow 0.2s ease;
+}
+
+.route-option-name {
+	font-size: 11px;
+	text-transform: uppercase;
+}
+
+.route-option-detail {
+	font-family: var(--font-default);
+	font-size: 12px;
+	letter-spacing: 0;
+	text-transform: none;
+	color: #334155;
+}
+
+.route-option:hover {
+	background-color: #dbeafe;
+}
+
+.route-option:focus-visible {
+	outline: 2px solid #0ea5e9;
+	outline-offset: 2px;
+}
+
+.route-option.active {
+	background-color: #0284c7;
+	color: #ffffff;
+	box-shadow: 0 0 0 1px #0284c7 inset;
+}
+
+.route-option.active .route-option-detail {
+	color: #e0f2fe;
+}
+
+@media (max-width: 1100px) {
+	.route-bar-list {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 700px) {
+	.route-bar {
+		padding: 10px 14px;
+	}
+
+	.route-bar-list {
+		grid-template-columns: minmax(0, 1fr);
+	}
 }
 
 /* Sidebar sections */
