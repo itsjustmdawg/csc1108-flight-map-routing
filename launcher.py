@@ -1,112 +1,64 @@
 import subprocess
 import sys
 import os
-import importlib
 import platform
 
 OS = platform.system()
 
-WINDOWS_PACKAGES = [
-    ("pywebview", "webview"),
-]
-
-MAC_PACKAGES = [
-    ("pyobjc-core",              "objc"),
-    ("pyobjc-framework-Cocoa",   "AppKit"),
-    ("pyobjc-framework-WebKit",  "WebKit"),
-    ("pywebview",                "webview"),
-]
-
-LINUX_PACKAGES = [
-    ("pywebview", "webview"),
-]
-
-def get_packages():
-    if OS == "Windows":
-        return WINDOWS_PACKAGES
-    elif OS == "Darwin":
-        return MAC_PACKAGES
-    else:
-        return LINUX_PACKAGES
-
-def is_admin():
-    if OS != "Windows":
-        return True
-    try:
-        import ctypes
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        return False
-
-def run_as_admin():
-    if OS == "Windows":
-        import ctypes
-        ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", sys.executable, " ".join(sys.argv), None, 1
-        )
-        sys.exit()
-
-def pip_install(package):
-    process = subprocess.Popen(
-        [sys.executable, "-m", "pip", "install", package,
-         "--disable-pip-version-check"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True
-    )
-    for line in process.stdout:
-        line = line.strip()
-        if line:
-            print(f"    {line}")
-
-    process.wait()
-    return process.returncode == 0
-
-def install_packages():
-    packages = get_packages()
-    installed_any = False
-
-    for pip_name, import_name in packages:
+def find_python():
+    """Find the correct Python installation on the user's machine"""
+    candidates = [
+        "python",
+        "python3",
+        "py",
+    ]
+    for cmd in candidates:
         try:
-            importlib.import_module(import_name)
-            print(f"  [OK] {pip_name} already installed.")
-        except ImportError:
-            print(f"  [>>] Installing {pip_name}... (please wait)")
-            success = pip_install(pip_name)
-            if success:
-                print(f"  [OK] {pip_name} installed successfully!")
-                installed_any = True
+            result = subprocess.run(
+                [cmd, "--version"],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                return cmd
+        except FileNotFoundError:
+            continue
+    return None
+
+def install_packages(python_cmd):
+    PACKAGES = ["pywebview"]
+
+    for package in PACKAGES:
+        # Check if already installed
+        check = subprocess.run(
+            [python_cmd, "-m", "pip", "show", package],
+            capture_output=True, text=True
+        )
+        if check.returncode == 0:
+            print(f"  [OK] {package} already installed.")
+        else:
+            print(f"  [>>] Installing {package}... (please wait)")
+            result = subprocess.Popen(
+                [python_cmd, "-m", "pip", "install", package,
+                 "--disable-pip-version-check"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True
+            )
+            for line in result.stdout:
+                line = line.strip()
+                if line:
+                    print(f"    {line}")
+            result.wait()
+
+            if result.returncode == 0:
+                print(f"  [OK] {package} installed successfully!")
             else:
-                print(f"\n  [FAIL] Failed to install {pip_name}!")
-                if OS == "Windows":
-                    print("        Try running Setup.exe as Administrator.")
-                elif OS == "Darwin":
-                    print("        Try running: sudo python3 launcher.py")
+                print(f"\n  [FAIL] Failed to install {package}!")
+                print("         Try running Setup.exe as Administrator.")
                 input("\nPress Enter to exit...")
                 sys.exit(1)
 
-    return installed_any
-
-def install_mac_dependencies():
-    print("  [>>] Checking Homebrew and system dependencies...")
-    brew_check = subprocess.run(["which", "brew"], capture_output=True, text=True)
-
-    if brew_check.returncode != 0:
-        print("  [!] Homebrew not found. Installing Homebrew...")
-        brew_install = subprocess.run(
-            '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
-            shell=True
-        )
-        if brew_install.returncode != 0:
-            print("  [FAIL] Failed to install Homebrew.")
-            print("         Please install manually: https://brew.sh")
-            input("\nPress Enter to exit...")
-            sys.exit(1)
-        print("  [OK] Homebrew installed!")
-    else:
-        print("  [OK] Homebrew already installed.")
-
-def launch_app():
+def launch_app(python_cmd):
     if getattr(sys, 'frozen', False):
         base_dir = os.path.dirname(sys.executable)
     else:
@@ -121,7 +73,8 @@ def launch_app():
         sys.exit(1)
 
     print("\n  [>>] Launching app...\n")
-    subprocess.run([sys.executable, app_path])
+    # Use the USER'S Python, not the bundled one
+    subprocess.run([python_cmd, app_path])
 
 def main():
     print("================================================")
@@ -129,34 +82,38 @@ def main():
     print("================================================")
     print()
     print(f"  [OK] OS detected: {OS}")
-    print(f"  [OK] Python {sys.version.split()[0]} detected.")
     print()
 
-    if OS == "Windows" and not is_admin():
-        print("  [!] Requesting admin privileges...")
-        run_as_admin()
-    elif OS == "Windows":
-        print("  [OK] Running as Administrator.")
+    # Find Python on user's machine
+    python_cmd = find_python()
+    if not python_cmd:
+        print("  [FAIL] Python not found!")
+        print("         Please install Python from https://www.python.org/downloads/")
+        print("         Make sure to check 'Add Python to PATH' during installation.")
+        input("\nPress Enter to exit...")
+        sys.exit(1)
 
-    if OS == "Darwin":
-        install_mac_dependencies()
-
+    # Get version info
+    version = subprocess.run(
+        [python_cmd, "--version"],
+        capture_output=True, text=True
+    ).stdout.strip()
+    print(f"  [OK] {version} detected.")
+    print(f"  [OK] Python path: {python_cmd}")
     print()
+
     print("  Checking Python dependencies...")
     print()
 
-    installed_any = install_packages()
+    install_packages(python_cmd)
 
     print()
     print("================================================")
-    if installed_any:
-        print("  [OK] Setup complete! All packages installed.")
-    else:
-        print("  [OK] All dependencies already satisfied.")
+    print("  [OK] All dependencies satisfied.")
     print("================================================")
     print()
 
-    launch_app()
+    launch_app(python_cmd)
 
 if __name__ == "__main__":
     main()
