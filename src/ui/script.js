@@ -116,6 +116,9 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 
 let originMarker = null;
 let destinationMarker = null;
+let currentRoutes = [];
+let routePolylines = [];
+let waypointMarkers = [];
 
 function getAirportFromInput(inputElement) {
 	const selectedCode = inputElement.dataset.airportCode || "";
@@ -191,6 +194,115 @@ function updateMarkerForInput(inputElement) {
 	setAirportMarker(role, airport);
 }
 
+function clearRouteVisualization() {
+	// Remove all polylines
+	routePolylines.forEach((polyline) => map.removeLayer(polyline));
+	routePolylines = [];
+
+	// Remove all waypoint markers
+	waypointMarkers.forEach((marker) => map.removeLayer(marker));
+	waypointMarkers = [];
+}
+
+function displayRouteOnMap(routeIndex) {
+	clearRouteVisualization();
+
+	if (routeIndex < 0 || routeIndex >= currentRoutes.length) {
+		return;
+	}
+
+	const route = currentRoutes[routeIndex];
+	const waypoints = [];
+
+	// Collect all waypoint coordinates from the route paths
+	route.paths.forEach((path) => {
+		const sourceAirport = airportByCode.get(path.source);
+		const destAirport = airportByCode.get(path.destination);
+
+		if (
+			sourceAirport &&
+			hasValidCoordinates(sourceAirport) &&
+			waypoints.length === 0
+		) {
+			waypoints.push([sourceAirport.latitude, sourceAirport.longitude]);
+		}
+
+		if (destAirport && hasValidCoordinates(destAirport)) {
+			waypoints.push([destAirport.latitude, destAirport.longitude]);
+		}
+	});
+
+	if (waypoints.length < 2) {
+		return;
+	}
+
+	// Draw polyline connecting all waypoints
+	const polyline = L.polyline(waypoints, { color: "blue", weight: 2 })
+		.addTo(map)
+		.bindPopup(`Route ${routeIndex + 1}`);
+	routePolylines.push(polyline);
+
+	// Add markers for each waypoint (except origin which is already shown)
+	for (let i = 1; i < waypoints.length; i++) {
+		const marker = L.marker(waypoints[i]).addTo(map);
+
+		const airportCode =
+			i === waypoints.length - 1
+				? route.paths[route.paths.length - 1].destination
+				: route.paths[i - 1].destination;
+
+		const airport = airportByCode.get(airportCode);
+		const airportName = airport?.name || "Unknown Airport";
+
+		const markerLabel =
+			i === waypoints.length - 1
+				? `<b>Destination</b><br>${airportCode} - ${airportName}`
+				: `<b>Stop</b><br>${airportCode} - ${airportName}`;
+
+		marker.bindPopup(markerLabel);
+		waypointMarkers.push(marker);
+	}
+
+	map.fitBounds(L.latLngBounds(waypoints), { padding: [40, 40] });
+}
+
+function updateRouteButtonsDisplay() {
+	const routeOptionButtons = document.querySelectorAll(".route-option");
+
+	routeOptionButtons.forEach((button, index) => {
+		if (index >= currentRoutes.length) {
+			button.style.display = "none";
+			return;
+		}
+
+		button.style.display = "";
+		const route = currentRoutes[index];
+		const stops = Math.max(0, route.paths.length - 1); // Number of stops = segments - 1
+
+		const nameSpan = button.querySelector(".route-option-name");
+		const detailSpans = button.querySelectorAll(".route-option-detail");
+
+		nameSpan.textContent = `Route ${index + 1}`;
+		detailSpans[0].textContent = `${Math.round(route.total_distance)} km · ${Math.round(route.total_time / 60)}h ${Math.round(route.total_time % 60)}m`;
+		detailSpans[1].textContent = `${stops} ${stops === 1 ? "stop" : "stops"} · $${Math.round(route.price)}`;
+	});
+}
+
+function selectRoute(routeIndex) {
+	const routeOptionButtons = document.querySelectorAll(".route-option");
+	routeOptionButtons.forEach((btn, index) => {
+		if (index === routeIndex) {
+			btn.classList.add("active");
+			btn.setAttribute("aria-pressed", "true");
+		} else {
+			btn.classList.remove("active");
+			btn.setAttribute("aria-pressed", "false");
+		}
+	});
+
+	displayRouteOnMap(routeIndex);
+}
+
 // ===============================================
 // Airport search dropdown logic
 // ===============================================
@@ -238,6 +350,8 @@ setupToggleButtons(filterButtons, (button) => {
 
 setupToggleButtons(routeOptionButtons, (button) => {
 	selectedRouteOption = button.dataset.routeOption;
+	const routeIndex = Array.from(routeOptionButtons).indexOf(button);
+	selectRoute(routeIndex);
 });
 
 function buildAirportOptionLabel(airport) {
@@ -499,9 +613,9 @@ findRoutesButton.addEventListener("click", async () => {
 
 	if (
 		!(
-		window.pywebview &&
-		window.pywebview.api &&
-		window.pywebview.api.get_routes	
+			window.pywebview &&
+			window.pywebview.api &&
+			window.pywebview.api.get_routes
 		)
 	) {
 		console.error("Python API not available for route finding.");
@@ -514,7 +628,7 @@ findRoutesButton.addEventListener("click", async () => {
 			originAirport,
 			destinationAirport,
 			selectedFilter,
-			4
+			4,
 		);
 		if (!result || !result.ok) {
 			console.error("Failed to retrieve routes:", result?.error);
@@ -524,10 +638,14 @@ findRoutesButton.addEventListener("click", async () => {
 
 		console.log("Selected filter:", selectedFilter);
 		console.log("Route finding result:", result.routes);
-		
-		if (result.routes.length > 0) {
-			const firstRoute = result.routes[0];
-			console.log("First route details:", firstRoute);
+
+		// Store routes and update display
+		currentRoutes = result.routes;
+		updateRouteButtonsDisplay();
+
+		// Display the first route by default
+		if (currentRoutes.length > 0) {
+			selectRoute(0);
 		} else {
 			console.log("No routes found for the selected airports.");
 		}
