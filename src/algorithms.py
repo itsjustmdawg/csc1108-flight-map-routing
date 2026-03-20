@@ -469,9 +469,6 @@ def _find_route_astar_blocked(graph: FlightGraph, start_airport: Airport, end_ai
         # If the destination is reached, reconstruct the path from start to end
         if current_iata == end_iata:
             route = _reconstruct_path(prev_path, start_iata, end_iata)
-            if route:
-                # As requested, force the price to 0.0 for now
-                route.price = 0.0
             return route
 
         # Optimization: If we have already visited (expanded) this node, skip it
