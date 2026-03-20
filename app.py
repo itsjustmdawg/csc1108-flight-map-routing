@@ -61,6 +61,8 @@ class SkyPathApi:
         start_airport = self.flight_graph.airports[src_code]
         end_airport = self.flight_graph.airports[dest_code]
 
+        routes = None
+
         # a* with distance heuristic
         if selected_filter == "shortest":
             routes = src.algorithms.find_routes_astar(
@@ -95,6 +97,10 @@ class SkyPathApi:
                 start_airport,
                 end_airport
             )
+
+        # Handle case where no routes are found
+        if routes is None:
+            routes = []
 
         serialised_routes = []
         for route in routes:
