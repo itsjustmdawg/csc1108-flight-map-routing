@@ -195,9 +195,27 @@ function updateMarkerForInput(inputElement) {
 // Airport search dropdown logic
 // ===============================================
 
+// Helper function to apply toggle logic to button groups
+function setupToggleButtons(buttonNodeList, onToggle) {
+	buttonNodeList.forEach((button) => {
+		button.addEventListener("click", () => {
+			buttonNodeList.forEach((btn) => {
+				btn.classList.remove("active");
+				btn.setAttribute("aria-pressed", "false");
+			});
+
+			button.classList.add("active");
+			button.setAttribute("aria-pressed", "true");
+			onToggle(button);
+		});
+	});
+}
+
 // Filter button logic
 const filterButtons = document.querySelectorAll(".filter-option");
-// let selectedFilter = "shortest_distance";
+let selectedFilter = "shortest_distance";
+const routeOptionButtons = document.querySelectorAll(".route-option");
+let selectedRouteOption = "route_1";
 
 const originInput = document.getElementById("origin");
 const destinationInput = document.getElementById("destination");
@@ -214,17 +232,12 @@ let popularAirports = [];
 const airportByCode = new Map();
 const POPULAR_AIRPORT_LIMIT = 20;
 
-filterButtons.forEach((button) => {
-	button.addEventListener("click", () => {
-		filterButtons.forEach((btn) => {
-			btn.classList.remove("active");
-			btn.setAttribute("aria-pressed", "false");
-		});
+setupToggleButtons(filterButtons, (button) => {
+	selectedFilter = button.dataset.filter;
+});
 
-		button.classList.add("active");
-		button.setAttribute("aria-pressed", "true");
-		selectedFilter = button.dataset.filter;
-	});
+setupToggleButtons(routeOptionButtons, (button) => {
+	selectedRouteOption = button.dataset.routeOption;
 });
 
 function buildAirportOptionLabel(airport) {
