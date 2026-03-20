@@ -204,6 +204,19 @@ function clearRouteVisualization() {
 	waypointMarkers = [];
 }
 
+function clearRoutes() {
+	// Clear route data and visualization (but not button display)
+	currentRoutes = [];
+	clearRouteVisualization();
+}
+
+function clearRoutesAndButtons() {
+	// Clear route data, visualization, and button display
+	currentRoutes = [];
+	clearRouteVisualization();
+	updateRouteButtonsDisplay();
+}
+
 function displayRouteOnMap(routeIndex) {
 	clearRouteVisualization();
 
@@ -391,6 +404,7 @@ function clearAirportSelection(
 	inputElement.value = "";
 	inputElement.dataset.airportCode = "";
 	updateMarkerForInput(inputElement);
+	clearRoutesAndButtons();
 	renderFilteredOptions(inputElement, optionsElement);
 	updateClearButtonVisibility(inputElement, clearButtonElement);
 	inputElement.focus();
@@ -417,6 +431,7 @@ function createAirportOptionButton(airport, inputElement, optionsElement) {
 		inputElement.dataset.airportCode = airport.code;
 		hideOptions(optionsElement);
 		updateMarkerForInput(inputElement);
+		clearRoutes();
 
 		const clearButtonElement =
 			inputElement.parentElement?.querySelector(".dropdown-clear");
@@ -655,11 +670,3 @@ findRoutesButton.addEventListener("click", async () => {
 });
 
 window.addEventListener("pywebviewready", loadAirports);
-
-// if (
-// 	window.pywebview &&
-// 	window.pywebview.api &&
-// 	window.pywebview.api.get_airports
-// ) {
-// 	loadAirports();
-// }

@@ -58,31 +58,43 @@ class SkyPathApi:
         if dest_code not in self.flight_graph.airports:
             return {"error": f"Destination airport '{dest_code}' not found."}
 
-        # start_airport = self.flight_graph.airports[src_code]
-        # end_airport = self.flight_graph.airports[dest_code]
+        start_airport = self.flight_graph.airports[src_code]
+        end_airport = self.flight_graph.airports[dest_code]
 
+        # a* with distance heuristic
         if selected_filter == "shortest":
-            pass
-            # a* with distance heuristic
+            routes = src.algorithms.find_routes_astar(
+                self.flight_graph,
+                start_airport,
+                end_airport
+            )
 
+        # bellman ford with price as weight
         if selected_filter == "cheapest":
-            # bellman ford with price as weight
-            pass
+            routes = src.algorithms.find_routes_bellmanFord(
+                self.flight_graph,
+                start_airport,
+                end_airport,
+                mode=selected_filter,
+                max_routes=max_routes
+            )
 
         if selected_filter == "fastest":
-            start_airport = self.flight_graph.airports[src_code]
-            end_airport = self.flight_graph.airports[dest_code]
             routes = src.algorithms.find_routes_dijkstra(
                 self.flight_graph,
                 start_airport,
                 end_airport,
                 mode=selected_filter,
-                max_routes=max_routes,
+                max_routes=max_routes
             )
 
         if selected_filter == "fewest_stops":
             # bfs
-            pass
+            routes = src.algorithms.find_route_least_connections(
+                self.flight_graph,
+                start_airport,
+                end_airport
+            )
 
         serialised_routes = []
         for route in routes:
