@@ -1,6 +1,7 @@
 import json
 import webview
 import os
+from datetime import datetime
 import src.data_loader
 import src.algorithms
 
@@ -10,7 +11,17 @@ class SkyPathApi:
     def __init__(self):
         base_directory = os.path.dirname(__file__)
         self.data_path = os.path.join(base_directory, "data", "airline_routes.json")
+        self.airlines_path = os.path.join(base_directory, "data", "airlines.json")
         self.flight_graph = src.data_loader.load_flight_data(self.data_path)
+        self.airlines_config = self._load_airlines_config()
+
+    def _load_airlines_config(self):
+        """Load cabin class configuration."""
+        try:
+            with open(self.airlines_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {"cabin_classes": {}, "airlines": {}}
 
     def get_airports(self):
 
@@ -43,9 +54,30 @@ class SkyPathApi:
         airports.sort(key=lambda airport: airport["code"])
         return airports
 
-    # def draw_route(self, src_code, dest_code):
+    def _is_weekend(self, date_str: str) -> bool:
+        """
+        Check if a date falls on a weekend (Saturday=5, Sunday=6).
+        Date format: 'YYYY-MM-DD'
+        """
+        try:
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            return date_obj.weekday() >= 5  # 5=Saturday, 6=Sunday
+        except ValueError:
+            return False
 
-    def get_routes(self, src_code, dest_code, selected_filter, max_routes=4):
+    def _apply_cabin_multiplier(self, base_price: float, cabin_class: str) -> float:
+        """Apply cabin class pricing multiplier."""
+        cabin_config = self.airlines_config.get("cabin_classes", {})
+        multiplier = cabin_config.get(cabin_class, {}).get("multiplier", 1.0)
+        return base_price * multiplier
+
+    def _apply_weekend_multiplier(self, price: float, departure_date: str) -> float:
+        """Apply 1.2x multiplier if departure date is a weekend."""
+        if self._is_weekend(departure_date):
+            return price * 1.2
+        return price
+
+    def get_routes(self, src_code, dest_code, selected_filter, max_routes=4, cabin_class="economy", trip_type="oneway", departure_date=None):
         if not src_code or not dest_code:
             return {"error": "Source and destination codes are required."}
 
@@ -104,18 +136,35 @@ class SkyPathApi:
 
         serialised_routes = []
         for route in routes:
+            # Apply cabin class and weekend multipliers to route price
+            route_price = route.price
+            route_price = self._apply_cabin_multiplier(route_price, cabin_class)
+            if departure_date:
+                route_price = self._apply_weekend_multiplier(route_price, departure_date)
+            
+            # For return trips, apply multipliers again (double the price)
+            if trip_type == "return" and departure_date:
+                route_price *= 2
+            
             serialised_routes.append(
                 {
                     "total_distance": route.distance_km,
                     "total_time": route.duration_min,
-                    "price": route.price,
+                    "price": route_price,
+                    "cabin_class": cabin_class,
+                    "trip_type": trip_type,
                     "paths": [
                         {
                             "source": p.source,
                             "destination": p.destination,
                             "distance_km": p.distance_km,
                             "duration_min": p.duration_min,
-                            "price": p.price,
+                            "price": self._apply_cabin_multiplier(p.price, cabin_class),
+                            "airlines": [
+                                {"iata": carrier.iata, "name": carrier.name}
+                                for carrier in (p.airlines or [])
+                            ],
+                            "cabin_class": cabin_class,
                         }
                         for p in route.paths
                     ],
@@ -138,3 +187,4 @@ if __name__ == "__main__":
         min_size=(800, 600),
     )
     webview.start(debug=False)
+
