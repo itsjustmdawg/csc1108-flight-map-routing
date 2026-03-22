@@ -1,11 +1,37 @@
 import json
+import os
 
 from src.adt import Carrier, Path, Airport, FlightGraph
+
+def _get_airline_cabin_classes(airline_iata: str, airlines_config: dict) -> list[str]:
+    """
+    Determine available cabin classes for an airline based on configuration.
+    
+    Returns list of cabin classes in priority order (economy, premium_economy, business, first).
+    """
+    for category in ["4class", "2class", "1class"]:
+        if airline_iata in airlines_config["airlines"].get(category, {}).get("airlines", []):
+            return airlines_config["airlines"][category]["multiplier_strategy"]
+    
+    # Default to economy if airline not found
+    return ["economy"]
 
 def load_flight_data(filepath):
     with open(filepath, "r") as file:
         data = json.load(file)
-
+    
+    # Load airlines configuration for cabin class mapping
+    base_directory = os.path.dirname(filepath)
+    airlines_config_path = os.path.join(base_directory, "airlines.json")
+    airlines_config = {}
+    
+    try:
+        with open(airlines_config_path, "r") as f:
+            airlines_config = json.load(f)
+    except FileNotFoundError:
+        # If airlines.json doesn't exist, default all to economy
+        print("Warning: airlines.json not found. All flights will be economy class.")
+    
     flightGraph: FlightGraph = FlightGraph()
 
     # O(n^3) for parsing dictionary into classes
@@ -44,6 +70,11 @@ def load_flight_data(filepath):
             dest: str = path_value["iata"]
             distance: int = path_value["km"]
             duration: int = path_value["min"]
+            
+            # Determine cabin classes available from first airline
+            available_cabins = ["economy"]
+            if carriers and airlines_config:
+                available_cabins = _get_airline_cabin_classes(carriers[0].iata, airlines_config)
 
             # Estimate flight price based on distance and duration
             if distance < 300:
@@ -52,12 +83,17 @@ def load_flight_data(filepath):
                 estimated_price = 150 + (distance * 0.22) + (duration * 0.35)
             else:
                 estimated_price = 250 + (distance * 0.18) + (duration * 0.30)
-
-            path = Path(src, dest, carriers, distance, duration, estimated_price)
+            
+            # Use the first available cabin class for the base route
+            # If user selects different cabin class, pricing will be adjusted
+            cabin_class = available_cabins[0] if available_cabins else "economy"
+            
+            path = Path(src, dest, carriers, distance, duration, estimated_price, cabin_class)
 
             flightGraph.add_path(path)
 
     return flightGraph
+
 
 
 

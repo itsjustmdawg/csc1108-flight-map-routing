@@ -1,0 +1,41 @@
+{
+  "cabin_classes": {
+    "economy": {
+      "display_name": "Economy",
+      "multiplier": 1.0,
+      "description": "Standard economy seating"
+    },
+    "premium_economy": {
+      "display_name": "Premium Economy",
+      "multiplier": 1.5,
+      "description": "Extra space and comfort"
+    },
+    "business": {
+      "display_name": "Business",
+      "multiplier": 1.8,
+      "description": "Flat beds and premium service"
+    },
+    "first": {
+      "display_name": "First Class",
+      "multiplier": 2.5,
+      "description": "Luxury travel experience"
+    }
+  },
+  "airlines": {
+    "4class": {
+      "display_name": "Full-Service International (4-Class)",
+      "multiplier_strategy": ["economy", "premium_economy", "business", "first"],
+      "airlines": ["AA", "DL", "BA", "AF", "LH", "CA", "CZ", "QR", "EK", "EY", "SQ", "CX", "ET", "SN", "KL", "LX", "OS", "TP", "AZ", "UX", "NH", "JL", "ANA", "SV", "RJ", "MU", "CM", "UA"]
+    },
+    "2class": {
+      "display_name": "Regional/Hybrid (2-Class: Economy + Business)",
+      "multiplier_strategy": ["economy", "business"],
+      "airlines": ["B6", "EW", "AV", "AR", "4Y", "A3", "AT", "BR", "BT", "DI", "EN", "FI", "IB", "KC", "LA", "QF", "SY", "VB", "VS", "WN"]
+    },
+    "1class": {
+      "display_name": "Low-Cost/Regional (1-Class: Economy Only)",
+      "multiplier_strategy": ["economy"],
+      "airlines": ["F9", "DY", "AK", "FD", "5J", "4Z", "7C", "9C", "8L", "JQ", "3H", "3L", "3O", "3U", "2Z", "5N", "5T", "8M", "8V", "9H", "9R", "1B", "2B", "2I", "2J", "2L", "2M", "2N", "2O", "2R", "2W", "3C", "3K", "3M", "3P", "3R", "3T", "4A", "4B", "4G", "4I", "4K", "4M", "4N", "4O", "4T", "5E", "5F", "5G", "5M", "5O", "5R", "5U", "5V", "5W", "5Z", "6A", "6E", "6G", "6I", "6N", "7G", "7H", "7P", "7R", "7Y", "7Z", "8B", "8D", "8E", "8F", "8I", "8J", "8N", "8P", "8T", "8U", "8W", "8Z", "9D", "9I", "9K", "9M", "9N", "9P", "9Q", "9V", "9X", "A2", "A4", "A6", "A8", "A9", "AE", "AH", "AI", "AM", "AN", "AP", "AQ", "AS", "AW", "AY", "B0", "B2", "B3", "B4", "B7", "B9", "BB", "BC", "BF", "BG", "BI", "BJ", "BK", "BP", "BQ", "BS", "BU", "BV", "BW", "BX", "C2", "C3", "C6", "CD", "CE", "CG", "CI", "CN", "CQ", "CU", "CY", "D2", "D3", "D4", "D7", "D8", "D9", "DC", "DD", "DE", "DG", "DJ", "DM", "DN", "DO", "DP", "DQ", "DR", "DT", "DU", "DV", "DX", "DZ", "E3", "E4", "E5", "E8", "E9", "EI", "EO", "EP", "EQ", "EU", "F2", "F3", "F8", "FA", "FB", "FC", "FG", "FH", "FJ"]
+    }
+  }
+}
