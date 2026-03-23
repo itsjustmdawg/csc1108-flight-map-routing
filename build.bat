@@ -2,15 +2,16 @@
 echo [Build] Running PyInstaller with Python 3.10...
 py -3.10 -m PyInstaller --onefile --console --name="Setup" launcher.py
 
-echo [Build] Setting up MyApp folder...
-if not exist MyApp mkdir MyApp
-
-copy dist\Setup.exe MyApp\Setup.exe
-copy app.py MyApp\app.py
-
-xcopy /E /I /Y src MyApp\src
-xcopy /E /I /Y data MyApp\data
-xcopy /E /I /Y tests MyApp\tests
+echo [Build] Copying Setup.exe to root...
+copy dist\Setup.exe Setup.exe
 
 echo.
-echo [Build] Done! MyApp folder is ready to send to users.
+echo [Build] Done! Files are ready in root directory.
+echo.
+echo   Root/
+echo   ├── Setup.exe
+echo   ├── app.py
+echo   ├── src/
+echo   ├── data/
+echo   └── tests/
+echo.

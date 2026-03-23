@@ -368,11 +368,35 @@ setupToggleButtons(routeOptionButtons, (button) => {
 });
 
 function buildAirportOptionLabel(airport) {
-	return `${airport.code} | ${airport.icao} | ${airport.country} | ${airport.name}`;
+	return `${airport.country} | ${airport.code} | ${airport.icao} | ${airport.name}`;
 }
 
-function getAirportSearchText(airport) {
-	return `${airport.code} ${airport.icao} ${airport.country} ${airport.name}`.toLowerCase();
+function getAirportSearchText(airport,query) {
+	if (!query) return true;
+	const q = query.toLowerCase();
+	return (
+		(airport.country || "").toLowerCase().includes(q) ||
+		(airport.code || "").toLowerCase().includes(q) ||
+		(airport.icao || "").toLowerCase().includes(q) ||
+		(airport.name || "").toLowerCase().includes(q)
+	);
+}
+
+function getSearchScore(airport, query) {
+	const country = (airport.country || "").toLowerCase();
+	const code = (airport.code || "").toLowerCase();
+	const icao = (airport.icao || "").toLowerCase();
+	const name = (airport.name || "").toLowerCase();
+
+	if (country.startsWith(query)) return 0;   // "sing" → Singapore
+	if (code.startsWith(query)) return 1;       // "sin" → SIN code
+	if (name.startsWith(query)) return 2;       // "gla" → Glasgow Airport
+	if (code.includes(query)) return 3;
+	if (name.includes(query)) return 4;         // airport name contains query
+	if (country.includes(query)) return 5;      // "gla" → Ban"gla"desh (partial)
+	if (icao.startsWith(query)) return 6;
+	if (icao.includes(query)) return 7;
+	return 8;
 }
 
 function clearOptions(container) {
@@ -421,7 +445,7 @@ function createAirportOptionButton(airport, inputElement, optionsElement) {
 
 	const metaSpan = document.createElement("span");
 	metaSpan.className = "airport-option-meta";
-	metaSpan.textContent = `${airport.icao} | ${airport.country} | ${airport.name}`;
+	metaSpan.textContent = `${airport.name}`;
 
 	optionButton.appendChild(codeSpan);
 	optionButton.appendChild(metaSpan);
@@ -448,9 +472,9 @@ function renderFilteredOptions(inputElement, optionsElement) {
 	const sourceAirports =
 		query === ""
 			? popularAirports
-			: airportsCache.filter((airport) =>
-					getAirportSearchText(airport).includes(query),
-				);
+			: airportsCache
+    			.filter((airport) => getAirportSearchText(airport, query))
+    			.sort((a, b) => getSearchScore(a, query) - getSearchScore(b, query))
 
 	const filteredAirports = sourceAirports.slice(0, 120);
 
@@ -466,10 +490,36 @@ function renderFilteredOptions(inputElement, optionsElement) {
 		return;
 	}
 
+	// Group airports by country
+	const grouped = {};
 	filteredAirports.forEach((airport) => {
-		optionsElement.appendChild(
-			createAirportOptionButton(airport, inputElement, optionsElement),
-		);
+		const country = airport.country || "Unknown";
+		if (!grouped[country]) {
+			grouped[country] = [];
+		}
+		grouped[country].push(airport);
+	});
+
+	// Sort countries alphabetically
+	const sortedCountries = Object.keys(grouped).sort((a, b) => {
+    	const bestScoreA = Math.min(...grouped[a].map(airport => getSearchScore(airport, query)));
+    	const bestScoreB = Math.min(...grouped[b].map(airport => getSearchScore(airport, query)));
+    	return bestScoreA - bestScoreB;
+	});
+
+	sortedCountries.forEach((country) => {
+		// Add country group header
+		const header = document.createElement("div");
+		header.className = "airport-group-header";
+		header.textContent = `${country} (${grouped[country].length})`;
+		optionsElement.appendChild(header);
+
+		// Add airports under that country
+		grouped[country].forEach((airport) => {
+			optionsElement.appendChild(
+				createAirportOptionButton(airport, inputElement, optionsElement),
+			);
+		});
 	});
 
 	showOptions(optionsElement);
