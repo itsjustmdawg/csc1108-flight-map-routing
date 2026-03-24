@@ -484,7 +484,7 @@ def find_routes_astar(graph: FlightGraph, start_airport: Airport, end_airport: A
                     distance_km=total_distance,
                     duration_min=total_duration,
                     paths=current_paths,
-                    price=0.0  # As requested in the older version, force the price to 0.0 for now
+                    price=total_price
                 )
                 routes.append(route)
                 
