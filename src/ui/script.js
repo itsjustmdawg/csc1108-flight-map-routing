@@ -368,7 +368,7 @@ setupToggleButtons(routeOptionButtons, (button) => {
 });
 
 function buildAirportOptionLabel(airport) {
-	return `${airport.country} | ${airport.code} | ${airport.icao} | ${airport.name}`;
+	return `${airport.country} | ${airport.code} | ${airport.name}`;
 }
 
 function getAirportSearchText(airport,query) {
