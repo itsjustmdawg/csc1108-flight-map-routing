@@ -5,17 +5,17 @@ from src.adt import FlightGraph, Airport, Route, Path
 from src.utils import calculate_haversine_distance
 
 # BFS
-def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end_airport: Airport) -> Route | None:
+def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end_airport: Airport) -> list[Route] | None:
     """
     Finds the route with the fewest layovers between two airports using BFS.
 
     Parameters:
     graph (FlightGraph): The data structure of the cleaned JSON data.
-    start_iata (str): The 3-letter IATA code of the starting airport.
-    end_iata (str): The 3-letter IATA code of the destination airport.
+    start_airport (Airport): The starting airport object.
+    end_airport (Airport): The destination airport object.
 
     Returns:
-    list: A list of IATA codes representing the shortest path, or None if no path exists.
+    list[Route]: A list containing one Route object representing the path with fewest stops, or None if no path exists.
     """
 
     # Extract iata from Airport class
@@ -26,25 +26,37 @@ def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end
     if not graph.has_airport(start_iata) or not graph.has_airport(end_iata):
         return None
 
-    # Initialize a queue for BFS that stores tuples containing the current airport and the path taken to reach it.
-    queue = deque([(start_iata, [start_iata])])
+    # Initialize a queue for BFS that stores tuples containing the current airport, the path of IATA codes, and the path of Path objects
+    queue = deque([(start_iata, [start_iata], [])])
 
     # Set to keep track of visited airports to prevent infinite loops
     visited = {start_iata}
 
     while queue:
         # Dequeue the first element
-        current_iata, current_path = queue.popleft()
+        current_iata, current_path_iatas, current_path_objects = queue.popleft()
 
-        # If the destination is reached, return the path
+        # If the destination is reached, construct and return the Route
         if current_iata == end_iata:
-            return current_path
+            # Calculate totals
+            total_distance = sum(path.distance_km for path in current_path_objects)
+            total_duration = sum(path.duration_min for path in current_path_objects)
+            total_price = sum(path.price for path in current_path_objects)
+            
+            # Create and return Route object wrapped in a list
+            route = Route(
+                distance_km=total_distance,
+                duration_min=total_duration,
+                paths=current_path_objects,
+                price=total_price
+            )
+            return [route]
 
         # Iterate through neighbouring nodes from the current airport
-        for route in graph.get_neighbours(current_iata):
+        for path_obj in graph.get_neighbours(current_iata):
 
             # Assign route destination to local variable
-            destination: str = route.destination
+            destination: str = path_obj.destination
 
             # Appending relevant list to eventually meet search condition above
             if destination not in visited:
@@ -53,7 +65,9 @@ def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end
                 visited.add(destination)
 
                 # Create a new path list appending the neighbor
-                queue.append((destination, current_path + [destination]))
+                new_path_iatas = current_path_iatas + [destination]
+                new_path_objects = current_path_objects + [path_obj]
+                queue.append((destination, new_path_iatas, new_path_objects))
 
     # Return None if the queue empties and no path is found
     return None
