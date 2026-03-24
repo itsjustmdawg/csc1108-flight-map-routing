@@ -453,6 +453,7 @@ function createAirportOptionButton(airport, inputElement, optionsElement) {
 	optionButton.addEventListener("click", () => {
 		inputElement.value = buildAirportOptionLabel(airport);
 		inputElement.dataset.airportCode = airport.code;
+		inputElement.dataset.autoCompleted = "true";
 		hideOptions(optionsElement);
 		updateMarkerForInput(inputElement);
 		clearRoutes();
@@ -468,12 +469,22 @@ function createAirportOptionButton(airport, inputElement, optionsElement) {
 function renderFilteredOptions(inputElement, optionsElement) {
 	clearOptions(optionsElement);
 
+	// If an airport has already been selected, show popular airports instead of filtering
+	const hasSelectedAirport = inputElement.dataset.airportCode !== "";
 	const query = inputElement.value.trim().toLowerCase();
 	const sourceAirports =
-		query === ""
+		query === "" || hasSelectedAirport
 			? popularAirports
 			: airportsCache
-    			.filter((airport) => getAirportSearchText(airport, query))
+    			.filter((airport) => {
+    				// Search by code, country, or name only
+    				const q = query.toLowerCase();
+    				return (
+    					(airport.code || "").toLowerCase().includes(q) ||
+    					(airport.country || "").toLowerCase().includes(q) ||
+    					(airport.name || "").toLowerCase().includes(q)
+    				);
+    			})
     			.sort((a, b) => getSearchScore(a, query) - getSearchScore(b, query))
 
 	const filteredAirports = sourceAirports.slice(0, 120);
@@ -561,12 +572,19 @@ function wireSearchableDropdown(
 	}
 
 	inputElement.addEventListener("focus", () => {
+		// Just render the options when focused, let keyboard events handle text changes
+		if (inputElement.dataset.airportCode && inputElement.value.includes("|")) {
+			// Instead of clearing in focus, we just select all text so user can see it
+			// and any keypress will replace it, just like a URL bar
+			inputElement.select();
+		}
 		renderFilteredOptions(inputElement, optionsElement);
 		updateClearButtonVisibility(inputElement, clearButtonElement);
 	});
 
 	inputElement.addEventListener("input", () => {
 		inputElement.dataset.airportCode = "";
+		inputElement.dataset.autoCompleted = "false";
 		updateMarkerForInput(inputElement);
 		renderFilteredOptions(inputElement, optionsElement);
 		updateClearButtonVisibility(inputElement, clearButtonElement);
@@ -575,6 +593,57 @@ function wireSearchableDropdown(
 	inputElement.addEventListener("keydown", (event) => {
 		if (event.key === "Escape") {
 			hideOptions(optionsElement);
+			return;
+		}
+
+		// URL bar behavior: replacing entire auto-completed string on character input
+		if (
+			inputElement.dataset.autoCompleted === "true" &&
+			event.key.length === 1 &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.altKey
+		) {
+			// If user hasn't made a manual selection (e.g. they just clicked the field or clicked it to move cursor)
+			if (inputElement.selectionStart === inputElement.selectionEnd) {
+				event.preventDefault();
+				inputElement.value = event.key;
+				inputElement.dataset.airportCode = "";
+				inputElement.dataset.autoCompleted = "false";
+				
+				// Dispatch an input event manually to trigger standard processing
+				const inputEvent = new Event("input", { bubbles: true });
+				inputElement.dispatchEvent(inputEvent);
+			}
+			// If they made a manual selection, let the default behavior happen (it will replace selection)
+		} 
+		// Handle backspace properly for URL-like behavior
+		else if (event.key === "Backspace" && inputElement.dataset.autoCompleted === "true") {
+			inputElement.dataset.autoCompleted = "false";
+			inputElement.dataset.airportCode = "";
+			
+			// Custom manual backspace logic to ensure it behaves consistently when in autoCompleted state
+			const selStart = inputElement.selectionStart;
+			const selEnd = inputElement.selectionEnd;
+			
+			if (selStart !== selEnd) {
+				// Prevent default to control the deletion exactly
+				event.preventDefault();
+				inputElement.value = inputElement.value.substring(0, selStart) + inputElement.value.substring(selEnd);
+				inputElement.setSelectionRange(selStart, selStart);
+				
+				const inputEvent = new Event("input", { bubbles: true });
+				inputElement.dispatchEvent(inputEvent);
+			} else if (selStart > 0) {
+				// Explicitly delete ONLY the character before the cursor
+				event.preventDefault();
+				const newPos = selStart - 1;
+				inputElement.value = inputElement.value.substring(0, newPos) + inputElement.value.substring(selStart);
+				inputElement.setSelectionRange(newPos, newPos);
+				
+				const inputEvent = new Event("input", { bubbles: true });
+				inputElement.dispatchEvent(inputEvent);
+			}
 		}
 	});
 
