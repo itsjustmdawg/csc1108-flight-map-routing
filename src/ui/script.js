@@ -13,6 +13,7 @@ const colors = [
 	"#0284c7",
 ];
 
+
 const board = document.getElementById("solari-logo");
 
 // ===============================================
@@ -214,7 +215,27 @@ function clearRoutesAndButtons() {
 	// Clear route data, visualization, and button display
 	currentRoutes = [];
 	clearRouteVisualization();
-	updateRouteButtonsDisplay();
+	// Hide and reset all route buttons
+    const routeOptionButtons = document.querySelectorAll(".route-option");
+    routeOptionButtons.forEach((btn, index) => {
+        btn.style.display = "flex"; // always visible
+        const nameSpan = btn.querySelector(".route-option-name");
+        const detailSpans = btn.querySelectorAll(".route-option-detail");
+
+        if (nameSpan) nameSpan.textContent = `Route ${index + 1}`; // show Route 1, 2, ...
+        if (detailSpans.length > 0) {
+            detailSpans[0].textContent = "-";
+            detailSpans[1].textContent = "-"; 
+        }
+
+        btn.classList.remove("active");
+        btn.setAttribute("aria-pressed", "false");
+    });
+
+
+    // Reset pagination
+    currentPage = 0;
+    updatePaginationInfo();
 }
 
 function displayRouteOnMap(routeIndex) {
@@ -279,42 +300,97 @@ function displayRouteOnMap(routeIndex) {
 	map.fitBounds(L.latLngBounds(waypoints), { padding: [40, 40] });
 }
 
+// ===============================================
+// Pagination & Route Selection
+// ===============================================
+
+const ROUTES_PER_PAGE = 4; // routes per page
+let currentPage = 0;       // 0-based page index
+
+const prevBtn = document.getElementById("prev-page");
+const nextBtn = document.getElementById("next-page");
+const pageInfo = document.getElementById("page-info");
+const routeContainer = document.getElementById("route-options-container"); // wrapper for buttons
+
+function updatePageNumber() {
+    const pageNumberSpan = document.getElementById("page-number");
+    pageNumberSpan.textContent = currentPage;
+}
+
+// Update page buttons and visible route buttons
+function updatePaginationInfo() {
+     const totalPages = Math.ceil(currentRoutes.length / ROUTES_PER_PAGE) || 1;
+
+    pageInfo.textContent = (currentPage + 1) + " / " + totalPages;
+
+    prevBtn.style.display = currentPage > 0 ? "inline-block" : "none";
+    nextBtn.style.display = currentPage < totalPages ? "inline-block" : "none";
+}
+
 function updateRouteButtonsDisplay() {
-	const routeOptionButtons = document.querySelectorAll(".route-option");
+	const routeBarList = document.querySelector(".route-bar-list");
+    routeBarList.innerHTML = ""; // clear all buttons
 
-	routeOptionButtons.forEach((button, index) => {
-		if (index >= currentRoutes.length) {
-			button.style.display = "none";
-			return;
-		}
+    const startIndex = currentPage * ROUTES_PER_PAGE;
+    const endIndex = Math.min(startIndex + ROUTES_PER_PAGE, currentRoutes.length);
 
-		button.style.display = "";
-		const route = currentRoutes[index];
-		const stops = Math.max(0, route.paths.length - 1); // Number of stops = segments - 1
+    for (let i = startIndex; i < endIndex; i++) {
+        const route = currentRoutes[i];
+        const stops = Math.max(0, route.paths.length - 1);
 
-		const nameSpan = button.querySelector(".route-option-name");
-		const detailSpans = button.querySelectorAll(".route-option-detail");
+        const btn = document.createElement("button");
+        btn.className = "route-option";
+        btn.type = "button";
+        btn.dataset.routeOption = `route_${i + 1}`;
+        btn.setAttribute("aria-pressed", "false");
 
-		nameSpan.textContent = `Route ${index + 1}`;
-		detailSpans[0].textContent = `${Math.round(route.total_distance)} km · ${Math.round(route.total_time / 60)}h ${Math.round(route.total_time % 60)}m`;
-		detailSpans[1].textContent = `${stops} ${stops === 1 ? "stop" : "stops"} · $${Math.round(route.price)}`;
-	});
+        btn.innerHTML = `
+            <span class="route-option-name">Route ${i + 1}</span>
+            <span class="route-option-detail">${Math.round(route.total_distance)} km · ${Math.floor(route.total_time / 60)}h ${Math.round(route.total_time % 60)}m</span>
+            <span class="route-option-detail">${stops} ${stops === 1 ? "stop" : "stops"} · $${Math.round(route.price)}</span>
+        `;
+
+        btn.addEventListener("click", () => selectRoute(i));
+
+        routeBarList.appendChild(btn);
+    }
+
+    updatePaginationInfo();
 }
 
 function selectRoute(routeIndex) {
 	const routeOptionButtons = document.querySelectorAll(".route-option");
-	routeOptionButtons.forEach((btn, index) => {
-		if (index === routeIndex) {
-			btn.classList.add("active");
-			btn.setAttribute("aria-pressed", "true");
-		} else {
-			btn.classList.remove("active");
-			btn.setAttribute("aria-pressed", "false");
-		}
-	});
 
-	displayRouteOnMap(routeIndex);
+    // Highlight the selected button
+    routeOptionButtons.forEach((btn, index) => {
+        btn.classList.toggle("active", index === routeIndex);
+        btn.setAttribute("aria-pressed", index === routeIndex ? "true" : "false");
+    });
+
+    // Show the route on the map
+    displayRouteOnMap(routeIndex);
+
+    // Update currentPage based on routeIndex
+    currentPage = Math.floor(routeIndex / ROUTES_PER_PAGE);
+
+    // Refresh pagination display
+    updatePaginationInfo();
 }
+
+prevBtn.addEventListener("click", () => {
+   if (currentPage > 0) { // 0-based
+        currentPage--;
+        updateRouteButtonsDisplay();
+    }
+});
+
+nextBtn.addEventListener("click", () => {
+    const totalPages = Math.ceil(currentRoutes.length / ROUTES_PER_PAGE);
+    if (currentPage < totalPages - 1) { // last page = totalPages-1
+        currentPage++;
+        updateRouteButtonsDisplay();
+    }
+});
 
 // ===============================================
 // Airport search dropdown logic
@@ -357,8 +433,43 @@ let popularAirports = [];
 const airportByCode = new Map();
 const POPULAR_AIRPORT_LIMIT = 20;
 
-setupToggleButtons(filterButtons, (button) => {
-	selectedFilter = button.dataset.filter;
+setupToggleButtons(filterButtons, async (button) => {
+    selectedFilter = button.dataset.filter;
+
+    // Don't clear buttons yet — keep current routes displayed
+    filterButtons.forEach(btn => btn.disabled = true);
+
+    const originAirport = originInput.dataset.airportCode || "";
+    const destinationAirport = destinationInput.dataset.airportCode || "";
+
+    if (!originAirport || !destinationAirport) {
+        filterButtons.forEach(btn => btn.disabled = false);
+        return;
+    }
+
+    try {
+        const result = await window.pywebview.api.get_routes(
+            originAirport,
+            destinationAirport,
+            selectedFilter,
+            4
+        );
+
+        if (result && result.ok) {
+            currentRoutes = result.routes || [];
+
+            // Reset to first page and display first route
+			currentPage = 0;                
+			updateRouteButtonsDisplay();    
+			if (currentRoutes.length > 0) {
+				selectRoute(0);             
+			}
+        }
+    } catch (err) {
+        console.error(err);
+    } finally {
+        filterButtons.forEach(btn => btn.disabled = false);
+    }
 });
 
 setupToggleButtons(routeOptionButtons, (button) => {
@@ -676,6 +787,8 @@ function populateAirportDropdowns(airports) {
 	});
 }
 
+
+
 // ===============================================
 // Initialization logic
 // ===============================================
@@ -740,6 +853,17 @@ findRoutesButton.addEventListener("click", async () => {
 	const originAirport = originInput.dataset.airportCode || "";
 	const destinationAirport = destinationInput.dataset.airportCode || "";
 
+	currentRoutes = result.routes;
+	updateRouteButtonsDisplay(); // refresh the route buttons
+
+	if (currentRoutes.length > 0) {
+		currentPage = 0;        // start at first page
+		selectRoute(0);         // show the first route on the map
+	} else {
+		currentPage = 0;        // no routes
+	}
+	updatePaginationInfo();      // update the page display
+
 	if (!originAirport || !destinationAirport) {
 		alert("Please select both origin and destination airports.");
 		return;
@@ -757,35 +881,30 @@ findRoutesButton.addEventListener("click", async () => {
 		return;
 	}
 
-	try {
-		const result = await window.pywebview.api.get_routes(
-			originAirport,
-			destinationAirport,
-			selectedFilter,
-			4,
-		);
-		if (!result || !result.ok) {
-			console.error("Failed to retrieve routes:", result?.error);
-			alert("Failed to retrieve routes. Please try again.");
-			return;
+	 try {
+			const result = await window.pywebview.api.get_routes(
+				originAirport,
+				destinationAirport,
+				selectedFilter,
+				0
+			);
+
+			if (!result || !result.ok) {
+				alert("Failed to retrieve routes. Please try again.");
+				return;
+			}
+
+			currentRoutes = result.routes;
+
+			// Reset to first page and display first route
+			currentPage = 0;                // <- put snippet here
+			updateRouteButtonsDisplay();    // <- put snippet here
+			if (currentRoutes.length > 0) {
+				selectRoute(0);             // <- put snippet here
+			}
+		} catch (error) {
+			console.error("Error while finding routes:", error);
 		}
-
-		console.log("Selected filter:", selectedFilter);
-		console.log("Route finding result:", result.routes);
-
-		// Store routes and update display
-		currentRoutes = result.routes;
-		updateRouteButtonsDisplay();
-
-		// Display the first route by default
-		if (currentRoutes.length > 0) {
-			selectRoute(0);
-		} else {
-			console.log("No routes found for the selected airports.");
-		}
-	} catch (error) {
-		console.error("Error while finding routes:", error);
-	}
 });
 
 window.addEventListener("pywebviewready", loadAirports);
