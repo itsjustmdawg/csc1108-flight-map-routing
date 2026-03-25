@@ -194,10 +194,10 @@ header {
 */
 @keyframes flow-dashes {
 	0% {
-		stroke-dashoffset: 0;
+		stroke-dashoffset: 20;  /* Matches dashArray width (12 + 8) */
 	}
 	100% {
-		stroke-dashoffset: 20;  /* Matches dashArray width (12 + 8) */
+		stroke-dashoffset: 0;
 	}
 }
 
