@@ -459,45 +459,47 @@ let airportsCache = [];
 let popularAirports = [];
 const airportByCode = new Map();
 const POPULAR_AIRPORT_LIMIT = 20;
+let filterTimeout;
 
 setupToggleButtons(filterButtons, async (button) => {
     selectedFilter = button.dataset.filter;
 
-    // Don't clear buttons yet — keep current routes displayed
+    // Disable buttons immediately
     filterButtons.forEach(btn => btn.disabled = true);
 
-    const originAirport = originInput.dataset.airportCode || "";
-    const destinationAirport = destinationInput.dataset.airportCode || "";
+    // Cancel any previous scheduled fetch
+    if (filterTimeout) clearTimeout(filterTimeout);
 
-    if (!originAirport || !destinationAirport) {
-		filterButtons.forEach(btn => btn.disabled = false);
-		return;
-}
+    filterTimeout = setTimeout(async () => {
+        const originAirport = originInput.dataset.airportCode || "";
+        const destinationAirport = destinationInput.dataset.airportCode || "";
 
-    try {
-        const result = await window.pywebview.api.get_routes(
-            originAirport,
-            destinationAirport,
-            selectedFilter,
-            999
-        );
-
-        if (result && result.ok) {
-            currentRoutes = (result.routes || []).slice(0, 50); // Reduce to prevent UI overload
-
-            // Reset to first page and display first route
-			currentPage = 0;
-			selectedRouteIndex = 0;
-			updateRouteButtonsDisplay();    
-			if (currentRoutes.length > 0) {
-				selectRoute(0);             
-			}
+        if (!originAirport || !destinationAirport) {
+            filterButtons.forEach(btn => btn.disabled = false);
+            return;
         }
-    } catch (err) {
-        console.error(err);
-    } finally {
-        filterButtons.forEach(btn => btn.disabled = false);
-    }
+
+        try {
+            const result = await window.pywebview.api.get_routes(
+                originAirport,
+                destinationAirport,
+                selectedFilter,
+                999 // limit routes to prevent overload
+            );
+
+            if (result && result.ok) {
+                currentRoutes = result.routes || [];
+                currentPage = 0;
+                selectedRouteIndex = 0;
+                updateRouteButtonsDisplay();
+                if (currentRoutes.length > 0) selectRoute(0);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            filterButtons.forEach(btn => btn.disabled = false);
+        }
+    }, 150); // wait 150ms after last click
 });
 
 setupToggleButtons(routeOptionButtons, (button) => {
