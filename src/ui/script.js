@@ -238,6 +238,11 @@ function clearRouteVisualization() {
 	// Enhanced cleanup: added safety checks to ensure all polylines and markers are actually removed from the map
 	// This prevents "ghost" visualizations from lingering when swapping routes or airports
 	
+	if (animationFrameId) {
+		cancelAnimationFrame(animationFrameId);
+		animationFrameId = null;
+	}
+
 	// Remove all polylines from the map with layer existence check
 	// map.hasLayer() ensures we don't try to remove layers that aren't on the map
 	routePolylines.forEach((polyline) => {
