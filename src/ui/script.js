@@ -459,47 +459,18 @@ let airportsCache = [];
 let popularAirports = [];
 const airportByCode = new Map();
 const POPULAR_AIRPORT_LIMIT = 20;
-let filterTimeout;
 
 setupToggleButtons(filterButtons, async (button) => {
+    // Only update selectedFilter, do NOT fetch routes yet
     selectedFilter = button.dataset.filter;
 
-    // Disable buttons immediately
-    filterButtons.forEach(btn => btn.disabled = true);
+    // Visually disable/enable buttons to show active state
+    filterButtons.forEach(btn => btn.classList.remove("active"));
+    button.classList.add("active");
 
-    // Cancel any previous scheduled fetch
-    if (filterTimeout) clearTimeout(filterTimeout);
-
-    filterTimeout = setTimeout(async () => {
-        const originAirport = originInput.dataset.airportCode || "";
-        const destinationAirport = destinationInput.dataset.airportCode || "";
-
-        if (!originAirport || !destinationAirport) {
-            filterButtons.forEach(btn => btn.disabled = false);
-            return;
-        }
-
-        try {
-            const result = await window.pywebview.api.get_routes(
-                originAirport,
-                destinationAirport,
-                selectedFilter,
-                10
-            );
-
-            if (result && result.ok) {
-                currentRoutes = result.routes || [];
-                currentPage = 0;
-                selectedRouteIndex = 0;
-                updateRouteButtonsDisplay();
-                if (currentRoutes.length > 0) selectRoute(0);
-            }
-        } catch (err) {
-            console.error(err);
-        } finally {
-            filterButtons.forEach(btn => btn.disabled = false);
-        }
-    }, 150); // wait 150ms after last click
+    // Optional: if you want, you can update aria-pressed
+    filterButtons.forEach(btn => btn.setAttribute("aria-pressed", "false"));
+    button.setAttribute("aria-pressed", "true");
 });
 
 setupToggleButtons(routeOptionButtons, (button) => {
@@ -880,42 +851,50 @@ wireSearchableDropdown(
 	destinationContainer,
 );
 
+let findRoutesTimeout;
+
 findRoutesButton.addEventListener("click", async () => {
-	const originAirport = originInput.dataset.airportCode || "";
-	const destinationAirport = destinationInput.dataset.airportCode || "";
+	if (findRoutesTimeout) clearTimeout(findRoutesTimeout);
 
-	if (!originAirport || !destinationAirport) {
-		alert("Please select both origin and destination airports.");
-		return;
-	}
+    findRoutesTimeout = setTimeout(async () => {
+        findRoutesButton.disabled = true;
 
-	try {
-		const result = await window.pywebview.api.get_routes(
-			originAirport,
-			destinationAirport,
-			selectedFilter,
-			10
-		);
+        const originAirport = originInput.dataset.airportCode || "";
+        const destinationAirport = destinationInput.dataset.airportCode || "";
 
-		if (!result || !result.ok) {
-			alert("Failed to retrieve routes.");
-			return;
-		}
+        if (!originAirport || !destinationAirport) {
+            alert("Please select both origin and destination airports.");
+            findRoutesButton.disabled = false;
+            return;
+        }
 
-		currentRoutes = result.routes || [];
+        try {
+            const result = await window.pywebview.api.get_routes(
+                originAirport,
+                destinationAirport,
+                selectedFilter,
+                10
+            );
 
-		currentPage = 0;
-		selectedRouteIndex = 0;
+            if (!result || !result.ok) {
+                alert("Failed to retrieve routes.");
+                findRoutesButton.disabled = false;
+                return;
+            }
 
-		updateRouteButtonsDisplay();
+            currentRoutes = result.routes || [];
+            currentPage = 0;
+            selectedRouteIndex = 0;
 
-		if (currentRoutes.length > 0) {
-			selectRoute(0);
-		}
+            updateRouteButtonsDisplay();
 
-	} catch (error) {
-		console.error(error);
-	}
+            if (currentRoutes.length > 0) selectRoute(0);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            findRoutesButton.disabled = false;
+        }
+    }, 200); // 200ms debounce after last click
 });
 
 window.addEventListener("pywebviewready", loadAirports);
