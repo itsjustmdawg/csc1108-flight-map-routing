@@ -146,6 +146,9 @@ let destinationMarker = null;
 let currentRoutes = [];
 let routePolylines = [];
 let waypointMarkers = [];
+let routeAnimations = [];
+let renderedRoutes = null;
+let animationFrameId = null;
 
 function getAirportFromInput(inputElement) {
 	const selectedCode = inputElement.dataset.airportCode || "";
@@ -225,6 +228,11 @@ function clearRouteVisualization() {
 	// Enhanced cleanup: added safety checks to ensure all polylines and markers are actually removed from the map
 	// This prevents "ghost" visualizations from lingering when swapping routes or airports
 	
+	if (animationFrameId) {
+		cancelAnimationFrame(animationFrameId);
+		animationFrameId = null;
+	}
+
 	// Remove all polylines from the map with layer existence check
 	// map.hasLayer() ensures we don't try to remove layers that aren't on the map
 	routePolylines.forEach((polyline) => {
@@ -241,6 +249,8 @@ function clearRouteVisualization() {
 		}
 	});
 	waypointMarkers = [];
+	routeAnimations = [];
+	renderedRoutes = null;
 }
 
 function clearRoutes() {
@@ -260,137 +270,275 @@ function clearRoutesAndButtons() {
 }
 
 function displayRouteOnMap(routeIndex) {
-	clearRouteVisualization();
-
 	if (routeIndex < 0 || routeIndex >= currentRoutes.length) {
 		return;
 	}
 
-	const route = currentRoutes[routeIndex];
-	const waypoints = [];
-
-	// Collect all waypoint coordinates from the route paths
-	route.paths.forEach((path) => {
-		const sourceAirport = airportByCode.get(path.source);
-		const destAirport = airportByCode.get(path.destination);
-
-		if (
-			sourceAirport &&
-			hasValidCoordinates(sourceAirport) &&
-			waypoints.length === 0
-		) {
-			waypoints.push([sourceAirport.latitude, sourceAirport.longitude]);
-		}
-
-		if (destAirport && hasValidCoordinates(destAirport)) {
-			waypoints.push([destAirport.latitude, destAirport.longitude]);
-		}
-	});
-
-	if (waypoints.length < 2) {
+	if (renderedRoutes === currentRoutes) {
+		updateRouteHighlighting(routeIndex);
 		return;
 	}
 
-	// ============================================================================
-	// DIRECTION DETECTION & CORRECTION (FIX FOR SWAP BUG)
-	// ============================================================================
-	// Problem: When routes are returned from backend, they might be in reverse order
-	// relative to what the user selected in the UI (e.g., user selects Dubai→China
-	// but route comes back as China→Dubai). This section detects and corrects such
-	// reversals to ensure visual direction always matches user selection.
-	
-	const firstPath = route.paths[0];
-	const lastPath = route.paths[route.paths.length - 1];
+	clearRouteVisualization();
+	renderedRoutes = currentRoutes;
 
-	// Get current origin and destination from the UI input fields
+	const selectedIndex = routeIndex;
 	const uiOriginCode = originInput.dataset.airportCode;
 	const uiDestCode = destinationInput.dataset.airportCode;
 
-	// CASE 1: Route is completely reversed relative to UI selection
-	// Example: UI says Dubai→China, but route has China→Dubai
-	// Fix: Reverse both the path segments AND waypoints to match UI direction
-	if (
-		firstPath.source === uiDestCode &&
-		lastPath.destination === uiOriginCode
-	) {
-		route.paths.reverse();
-		waypoints.reverse();
+	// 1. Determine styling for all lines based on the currently selected filter
+	let baseColor, dashArray, dashLength;
+	if (selectedFilter.includes("fast")) {
+		baseColor = "#16a34a";   // Green
+		dashArray = "15, 10";    // Dashed line
+		dashLength = 25;
+	} else if (selectedFilter.includes("cheap")) {
+		baseColor = "#9333ea";   // Purple
+		dashArray = "5, 5";      // Dotted line
+		dashLength = 10;
+	} else if (selectedFilter.includes("fewest")) {
+		baseColor = "#dc2626";   // Red
+		dashArray = "15, 5";     // Alternate dashed line
+		dashLength = 20;
+	} else {
+		baseColor = "#0284c7";   // Blue
+		dashArray = "12, 8";     // Flowing dashed line
+		dashLength = 20;
 	}
 
-	// CASE 2: Route path and waypoints already match UI, but perform consistency checks
-	// Verify that route matches UI direction; if waypoints are backward, reverse them
-	if (
-		(route.paths[0].source !== uiOriginCode || route.paths[route.paths.length - 1].destination !== uiDestCode) &&
-		waypoints[0][0] === airportByCode.get(uiOriginCode)?.latitude &&
-		waypoints[0][1] === airportByCode.get(uiOriginCode)?.longitude
-	) {
-		// Already consistent by waypoints, do nothing
-	} else if (
-		route.paths[0].source === uiOriginCode &&
-		route.paths[route.paths.length - 1].destination === uiDestCode
-	) {
-		// Route is fine as-is
-	} else {
-		// FALLBACK: If path/waypoint mismatch persists, force waypoint reordering based on UI input
-		// This is a safety measure to ensure visual direction always reflects user selection
-		const originLoc = airportByCode.get(uiOriginCode);
-		const destLoc = airportByCode.get(uiDestCode);
-		if (originLoc && destLoc && waypoints.length > 1) {
-			const currentOrigin = waypoints[0];
-			// If first waypoint is actually the destination (not origin), reverse the entire route
-			if (currentOrigin[0] === destLoc.latitude && currentOrigin[1] === destLoc.longitude) {
-				waypoints.reverse();
+	let globalStartTime = null;
+
+	// 2. Loop through ALL routes currently loaded in this filter to draw them together
+	currentRoutes.forEach((route, idx) => {
+		const isSelected = (idx === selectedIndex);
+		const waypoints = [];
+
+		route.paths.forEach((path) => {
+			const sourceAirport = airportByCode.get(path.source);
+			const destAirport = airportByCode.get(path.destination);
+
+			if (sourceAirport && hasValidCoordinates(sourceAirport) && waypoints.length === 0) {
+				waypoints.push([sourceAirport.latitude, sourceAirport.longitude]);
+			}
+			if (destAirport && hasValidCoordinates(destAirport)) {
+				waypoints.push([destAirport.latitude, destAirport.longitude]);
+			}
+		});
+
+		if (waypoints.length < 2) {
+			return; // Skip invalid routes
+		}
+
+		// ============================================================================
+		// DIRECTION DETECTION & CORRECTION (FIX FOR SWAP BUG)
+		// ============================================================================
+		const firstPath = route.paths[0];
+		const lastPath = route.paths[route.paths.length - 1];
+
+		if (firstPath.source === uiDestCode && lastPath.destination === uiOriginCode) {
+			route.paths.reverse();
+			waypoints.reverse();
+		}
+
+		if (
+			(route.paths[0].source !== uiOriginCode || route.paths[route.paths.length - 1].destination !== uiDestCode) &&
+			waypoints[0][0] === airportByCode.get(uiOriginCode)?.latitude &&
+			waypoints[0][1] === airportByCode.get(uiOriginCode)?.longitude
+		) {
+			// Already consistent by waypoints, do nothing
+		} else if (
+			route.paths[0].source === uiOriginCode &&
+			route.paths[route.paths.length - 1].destination === uiDestCode
+		) {
+			// Route is fine as-is
+		} else {
+			const originLoc = airportByCode.get(uiOriginCode);
+			const destLoc = airportByCode.get(uiDestCode);
+			if (originLoc && destLoc && waypoints.length > 1) {
+				const currentOrigin = waypoints[0];
+				if (currentOrigin[0] === destLoc.latitude && currentOrigin[1] === destLoc.longitude) {
+					waypoints.reverse();
+				}
 			}
 		}
+
+		// 3. Calculate distances between waypoints for interpolation
+		let totalDistance = 0;
+		const segmentDistances = [];
+		for (let i = 0; i < waypoints.length - 1; i++) {
+			const p1 = L.latLng(waypoints[i]);
+			const p2 = L.latLng(waypoints[i + 1]);
+			const dist = p1.distanceTo(p2);
+			segmentDistances.push(dist);
+			totalDistance += dist;
+		}
+
+		// Selected route is prominent, unselected variants are translucent/thinner
+		const routeOpacity = isSelected ? 0.8 : 0.2;
+		const routeWeight = isSelected ? 4 : 2;
+
+		const polyline = L.polyline([], { 
+			color: baseColor,
+			weight: routeWeight,
+			dashArray: dashArray,
+			lineCap: 'round',
+			lineJoin: 'round',
+			opacity: routeOpacity
+		}).addTo(map);
+		if (isSelected) {
+			polyline.bindPopup(`Selected Route ${idx + 1}`);
+		}
+		routePolylines.push(polyline);
+
+		function getPointAtDistance(targetDist) {
+			if (targetDist <= 0) return waypoints[0];
+			if (targetDist >= totalDistance) return waypoints[waypoints.length - 1];
+			
+			let accumulatedDist = 0;
+			for (let i = 0; i < waypoints.length - 1; i++) {
+				const segDist = segmentDistances[i];
+				if (accumulatedDist + segDist >= targetDist) {
+					if (segDist === 0) return waypoints[i + 1];
+					const segProgress = (targetDist - accumulatedDist) / segDist;
+					const p1 = waypoints[i];
+					const p2 = waypoints[i + 1];
+					return [
+						p1[0] + (p2[0] - p1[0]) * segProgress,
+						p1[1] + (p2[1] - p1[1]) * segProgress
+					];
+				}
+				accumulatedDist += segDist;
+			}
+			return waypoints[waypoints.length - 1];
+		}
+
+		const routeMarkers = [];
+
+		// Plot waypoint markers across all routes, make unselected variant markers translucent too
+		for (let i = 1; i < waypoints.length; i++) {
+			const marker = L.marker(waypoints[i], { opacity: isSelected ? 1.0 : 0.4 }).addTo(map);
+			const airportCode = i === waypoints.length - 1
+					? route.paths[route.paths.length - 1].destination
+					: route.paths[i - 1].destination;
+
+			const airport = airportByCode.get(airportCode);
+			const airportName = airport?.name || "Unknown Airport";
+			const markerLabel = i === waypoints.length - 1
+					? `<b>Destination</b><br>${airportCode} - ${airportName}`
+					: `<b>Stop</b><br>${airportCode} - ${airportName}`;
+
+			marker.bindPopup(markerLabel);
+			waypointMarkers.push(marker);
+			routeMarkers.push(marker);
+		}
+
+		routeAnimations.push({
+			routeIdx: idx,
+			polyline,
+			waypoints,
+			totalDistance,
+			segmentDistances,
+			getPointAtDistance,
+			hasFullyDrawn: false,
+			dashLength,
+			markers: routeMarkers
+		});
+	});
+
+	// 4. Combined animation loop iterating through the multiple lines safely
+	const animationDuration = 2000;
+		
+	function animate(timestamp) {
+		if (!globalStartTime) globalStartTime = timestamp;
+		
+		const elapsed = timestamp - globalStartTime;
+		const cometProgress = (elapsed % animationDuration) / animationDuration;
+		let drawProgress = elapsed / animationDuration;
+		let drawProgressClamped = Math.min(drawProgress, 1);
+		
+		let keepAnimating = false;
+
+		routeAnimations.forEach(anim => {
+			if (!map.hasLayer(anim.polyline)) return;
+			keepAnimating = true;
+
+			if (drawProgress >= 1) {
+				anim.hasFullyDrawn = true;
+			}
+
+			if (!anim.hasFullyDrawn) {
+				const trailDistance = drawProgressClamped * anim.totalDistance;
+				const trailPoints = [];
+				let accumulatedDist = 0;
+				trailPoints.push(anim.waypoints[0]);
+				
+				for (let i = 0; i < anim.waypoints.length - 1; i++) {
+					accumulatedDist += anim.segmentDistances[i];
+					if (accumulatedDist < trailDistance) {
+						trailPoints.push(anim.waypoints[i + 1]);
+					} else {
+						break;
+					}
+				}
+				trailPoints.push(anim.getPointAtDistance(trailDistance));
+				anim.polyline.setLatLngs(trailPoints);
+			} else {
+				// Animate dashes flowing towards destination after drawing is complete
+				// We offset the dash pattern based on elapsed time
+				const flowSpeed = 40; // Lower is faster (ms per pixel)
+				const dashOffset = anim.dashLength - ((elapsed / flowSpeed) % anim.dashLength);
+				if (anim.polyline._path) {
+					anim.polyline._path.style.strokeDashoffset = dashOffset;
+				}
+			}
+		});
+
+		if (keepAnimating) {
+			animationFrameId = requestAnimationFrame(animate);
+		}
 	}
-	// ============================================================================
 
-	// Draw polyline (route line) with animated flowing dashes to show direction
-	// IMPLEMENTATION NOTE: Previous attempt used leaflet-arrowheads plugin, but:
-	// - Plugin URL was unreliable and failed to load from CDN
-	// - Separate arrow markers had alignment issues when zooming in/out
-	// 
-	// Current solution: CSS-based dash animation (flow-dashes in styles.css)
-	// - Animates stroke-dashoffset to create flowing effect
-	// - No separate DOM elements = no alignment issues
-	// - Reliable and performant (CSS native animation)
-	// - Direction of flow shows origin→destination visually
-	
-	const polyline = L.polyline(waypoints, { 
-		color: "#0284c7",           // Blue color matching UI theme
-		weight: 3,                  // 3px line width
-		dashArray: '12, 8',         // 12px dashes, 8px gaps (creates flowing pattern)
-		lineCap: 'round',           // Rounded dash ends for smoother appearance
-		lineJoin: 'round',          // Rounded corners at path points
-		opacity: 0.9,               // Slightly transparent
-		className: 'animated-route-line'  // Applies CSS animation from styles.css
-	})
-	.addTo(map)
-	.bindPopup(`Route ${routeIndex + 1}`);
-	routePolylines.push(polyline);
-
-	// Add markers for each waypoint (except origin which is already shown)
-	for (let i = 1; i < waypoints.length; i++) {
-		const marker = L.marker(waypoints[i]).addTo(map);
-
-		const airportCode =
-			i === waypoints.length - 1
-				? route.paths[route.paths.length - 1].destination
-				: route.paths[i - 1].destination;
-
-		const airport = airportByCode.get(airportCode);
-		const airportName = airport?.name || "Unknown Airport";
-
-		const markerLabel =
-			i === waypoints.length - 1
-				? `<b>Destination</b><br>${airportCode} - ${airportName}`
-				: `<b>Stop</b><br>${airportCode} - ${airportName}`;
-
-		marker.bindPopup(markerLabel);
-		waypointMarkers.push(marker);
+	if (routeAnimations.length > 0) {
+		animationFrameId = requestAnimationFrame(animate);
+		
+		// Put the selected route on top of the translucent variants
+		const selectedAnim = routeAnimations.find(a => a.routeIdx === selectedIndex);
+		if (selectedAnim) {
+			selectedAnim.polyline.bringToFront();
+			map.fitBounds(L.latLngBounds(selectedAnim.waypoints), { padding: [40, 40] });
+		} else {
+			map.fitBounds(L.latLngBounds(routeAnimations[0].waypoints), { padding: [40, 40] });
+		}
 	}
+}
 
-	map.fitBounds(L.latLngBounds(waypoints), { padding: [40, 40] });
+function updateRouteHighlighting(selectedIndex) {
+	routeAnimations.forEach(anim => {
+		const isSelected = (anim.routeIdx === selectedIndex);
+		const routeOpacity = isSelected ? 0.8 : 0.2;
+		const routeWeight = isSelected ? 4 : 2;
+
+		anim.polyline.setStyle({
+			opacity: routeOpacity,
+			weight: routeWeight
+		});
+
+		if (isSelected) {
+			anim.polyline.bindPopup(`Selected Route ${anim.routeIdx + 1}`);
+			anim.polyline.bringToFront();
+		} else {
+			anim.polyline.unbindPopup();
+		}
+
+		anim.markers.forEach(marker => {
+			marker.setOpacity(isSelected ? 1.0 : 0.4);
+		});
+	});
+
+	const selectedAnim = routeAnimations.find(a => a.routeIdx === selectedIndex);
+	if (selectedAnim) {
+		map.fitBounds(L.latLngBounds(selectedAnim.waypoints), { padding: [40, 40] });
+	}
 }
 
 const routeDetailsElement = document.getElementById("route-details");
