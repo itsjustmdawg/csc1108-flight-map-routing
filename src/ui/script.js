@@ -484,7 +484,7 @@ setupToggleButtons(filterButtons, async (button) => {
                 originAirport,
                 destinationAirport,
                 selectedFilter,
-                999 // limit routes to prevent overload
+                10
             );
 
             if (result && result.ok) {
@@ -894,7 +894,7 @@ findRoutesButton.addEventListener("click", async () => {
 			originAirport,
 			destinationAirport,
 			selectedFilter,
-			999
+			10
 		);
 
 		if (!result || !result.ok) {
