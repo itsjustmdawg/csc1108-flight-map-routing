@@ -58,11 +58,11 @@ def test():
 
     # NOTE: implement input validation for shortest and cheapest (fastest)
     # dijkstra_route: Route = find_route_dijkstra(graph, "SIG", "CPX", mode=mode)
-    dijkstra_routes: list[Route] = find_routes_dijkstra(graph, start_airport, end_airport, mode=mode, max_routes=4)
+    dijkstra_routes: list[Route] = find_routes_dijkstra(graph, start_airport, end_airport, mode=mode)
 
     # NOTE: Bellman-Ford alternative shortest path algorithm
     # bellman_route: Route = find_route_bellmanFord(graph, "SIG", "CPX", mode=mode)
-    bellman_routes: list[Route] = find_routes_bellmanFord(graph, start_airport, end_airport, mode=mode, max_routes=4)
+    bellman_routes: list[Route] = find_routes_bellmanFord(graph, start_airport, end_airport, mode=mode)
 
     print(f"BFS Result: {bfs_route}")
     # Calculate total bfs distance
@@ -126,4 +126,3 @@ def test():
 
 if __name__ == "__main__":
     test()
-
