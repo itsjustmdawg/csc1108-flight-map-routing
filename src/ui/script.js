@@ -307,6 +307,7 @@ function displayRouteOnMap(routeIndex) {
 
 const ROUTES_PER_PAGE = 4; // routes per page
 let currentPage = 0;       // 0-based page index
+let selectedRouteIndex = 0;
 
 const prevBtn = document.getElementById("prev-page");
 const nextBtn = document.getElementById("next-page");
@@ -339,6 +340,12 @@ function updateRouteButtonsDisplay() {
 
 
 	if (!currentRoutes || currentRoutes.length === 0) {
+		routeOptionButtons.forEach((btn) => {
+			btn.style.display = "none";
+			btn.classList.remove("active");
+			btn.setAttribute("aria-pressed", "false");
+		});
+		updatePaginationInfo();
 		return;
 	}
 
@@ -366,9 +373,16 @@ function updateRouteButtonsDisplay() {
 			}
 
 			btn.onclick = () => selectRoute(routeIndex);
+			btn.classList.toggle("active", routeIndex === selectedRouteIndex);
+			btn.setAttribute(
+				"aria-pressed",
+				routeIndex === selectedRouteIndex ? "true" : "false"
+			);
 
 		} else {
 			btn.style.display = "none";
+			btn.classList.remove("active");
+			btn.setAttribute("aria-pressed", "false");
 		}
 	});
 
@@ -376,28 +390,22 @@ function updateRouteButtonsDisplay() {
 }
 
 function selectRoute(routeIndex) {
-	const routeOptionButtons = document.querySelectorAll(".route-option");
+	if (routeIndex < 0 || routeIndex >= currentRoutes.length) {
+		return;
+	}
 
-    // Highlight the selected button
-    routeOptionButtons.forEach((btn, index) => {
-        btn.classList.toggle("active", index === routeIndex);
-        btn.setAttribute("aria-pressed", index === routeIndex ? "true" : "false");
-    });
-
-    // Show the route on the map
-    displayRouteOnMap(routeIndex);
-
-    // Update currentPage based on routeIndex
-    currentPage = Math.floor(routeIndex / ROUTES_PER_PAGE);
-
-    // Refresh pagination display
-    updatePaginationInfo();
+	selectedRouteIndex = routeIndex;
+	currentPage = Math.floor(routeIndex / ROUTES_PER_PAGE);
+	updateRouteButtonsDisplay();
+	displayRouteOnMap(routeIndex);
 }
 
 prevBtn.addEventListener("click", () => {
    if (currentPage > 0) { // 0-based
         currentPage--;
+        selectedRouteIndex = currentPage * ROUTES_PER_PAGE;
         updateRouteButtonsDisplay();
+        displayRouteOnMap(selectedRouteIndex);
     }
 });
 
@@ -405,7 +413,9 @@ nextBtn.addEventListener("click", () => {
     const totalPages = Math.ceil(currentRoutes.length / ROUTES_PER_PAGE);
     if (currentPage < totalPages - 1) { // last page = totalPages-1
         currentPage++;
+        selectedRouteIndex = currentPage * ROUTES_PER_PAGE;
         updateRouteButtonsDisplay();
+        displayRouteOnMap(selectedRouteIndex);
     }
 });
 
@@ -476,7 +486,8 @@ setupToggleButtons(filterButtons, async (button) => {
             currentRoutes = (result.routes || []).slice(0, 50); // Reduce to prevent UI overload
 
             // Reset to first page and display first route
-			currentPage = 0;                
+			currentPage = 0;
+			selectedRouteIndex = 0;
 			updateRouteButtonsDisplay();    
 			if (currentRoutes.length > 0) {
 				selectRoute(0);             
@@ -491,7 +502,8 @@ setupToggleButtons(filterButtons, async (button) => {
 
 setupToggleButtons(routeOptionButtons, (button) => {
 	selectedRouteOption = button.dataset.routeOption;
-	const routeIndex = Array.from(routeOptionButtons).indexOf(button);
+	const routeIndex =
+		currentPage * ROUTES_PER_PAGE + Array.from(routeOptionButtons).indexOf(button);
 	selectRoute(routeIndex);
 });
 
@@ -891,6 +903,7 @@ findRoutesButton.addEventListener("click", async () => {
 		currentRoutes = result.routes || [];
 
 		currentPage = 0;
+		selectedRouteIndex = 0;
 
 		updateRouteButtonsDisplay();
 
@@ -901,51 +914,6 @@ findRoutesButton.addEventListener("click", async () => {
 	} catch (error) {
 		console.error(error);
 	}
-
-	if (currentRoutes.length > 0) {
-		currentPage = 0;        // start at first page
-		selectRoute(0);         // show the first route on the map
-	} else {
-		currentPage = 0;        // no routes
-	}
-	updatePaginationInfo();      // update the page display
-
-	if (
-		!(
-			window.pywebview &&
-			window.pywebview.api &&
-			window.pywebview.api.get_routes
-		)
-	) {
-		console.error("Python API not available for route finding.");
-		alert("Route finding functionality is currently unavailable.");
-		return;
-	}
-
-	 try {
-			const result = await window.pywebview.api.get_routes(
-				originAirport,
-				destinationAirport,
-				selectedFilter,
-				0
-			);
-
-			if (!result || !result.ok) {
-				alert("Failed to retrieve routes. Please try again.");
-				return;
-			}
-
-			currentRoutes = result.routes;
-
-			// Reset to first page and display first route
-			currentPage = 0;                // <- put snippet here
-			updateRouteButtonsDisplay();    // <- put snippet here
-			if (currentRoutes.length > 0) {
-				selectRoute(0);             // <- put snippet here
-			}
-		} catch (error) {
-			console.error("Error while finding routes:", error);
-		}
 });
 
 window.addEventListener("pywebviewready", loadAirports);
