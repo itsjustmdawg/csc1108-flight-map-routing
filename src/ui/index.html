@@ -87,6 +87,38 @@
 					</div>
 				</div>
 
+				<p class="section-label">// TRIP DETAILS</p>
+
+				<div id="trip-details">
+					<div class="field-wrapper">
+						<label for="trip-type">TRIP TYPE</label>
+						<select id="trip-type" class="form-select">
+							<option value="oneway">One-Way</option>
+							<option value="return">Return</option>
+						</select>
+					</div>
+
+					<div class="field-wrapper">
+						<label for="departure-date">DEPARTURE</label>
+						<input type="date" id="departure-date" class="form-input" />
+					</div>
+
+					<div class="field-wrapper" id="return-date-wrapper" style="display: none;">
+						<label for="return-date">RETURN</label>
+						<input type="date" id="return-date" class="form-input" />
+					</div>
+
+					<div class="field-wrapper">
+						<label for="cabin-class">CABIN CLASS</label>
+						<select id="cabin-class" class="form-select">
+							<option value="economy">Economy</option>
+							<option value="premium_economy">Premium Economy</option>
+							<option value="business">Business</option>
+							<option value="first">First Class</option>
+						</select>
+					</div>
+				</div>
+
 				<p class="section-label">// OPTIMISE BY</p>
 
 				<div id="filter">
@@ -198,6 +230,11 @@
 					<span id="page-info">1</span>
 					<button id="next-page" class="page-btn" style="display: none;" >&gt;</button>
 				</div>
+		</section>
+
+		<section class="route-text-panel" aria-label="Text route details">
+			<p class="route-text-title">Route details</p>
+			<pre id="route-details" class="route-details">Select a route, then press Find Routes</pre>
 		</section>
 
 		<script
