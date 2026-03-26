@@ -32,6 +32,7 @@ class Path:
     distance_km: int
     duration_min: int
     price: float = 0.0
+    cabin_class: str = "economy"
 
 """
 Route refers to the Start and End Destination Route

@@ -176,6 +176,41 @@ header {
 	}
 }
 
+/* ============================================================================
+   ANIMATED ROUTE VISUALIZATION
+   ============================================================================
+   Created to replace non-functional leaflet-arrowheads plugin.
+   Shows direction of flight path using animated flowing dashes.
+*/
+
+/* Animation: Flowing dashes that move along the polyline
+   This creates a directional flow effect by animating the dash offset.
+   The dashes appear to "flow" from origin to destination.
+   
+   How it works:
+   - dashArray: '12, 8' creates 12px dashes with 8px gaps
+   - stroke-dashoffset animates from 0 to 20 (the dash+gap length)
+   - Creates a continuous looping flow effect
+*/
+@keyframes flow-dashes {
+	0% {
+		stroke-dashoffset: 20;  /* Matches dashArray width (12 + 8) */
+	}
+	100% {
+		stroke-dashoffset: 0;
+	}
+}
+
+/* Class applied to polyline routes to animate the dashes
+   Duration: 2 seconds per cycle
+   Timing: Linear (constant speed)
+   Direction: Infinite loop
+*/
+.animated-route-line {
+	stroke-dashoffset: 0;
+	animation: flow-dashes 2s linear infinite;
+}
+
 .stats {
 	display: flex;
 	align-items: center;
@@ -238,6 +273,32 @@ select {
 	border: none;
 	font-family: var(--font-default);
 }
+
+.form-select,
+.form-input {
+	width: 100%;
+	padding: 10px;
+	margin-top: 6px;
+	border-radius: 4px;
+	border: 1px solid #94a3b8;
+	font-family: var(--font-default);
+	font-size: 14px;
+	color: #0f172a;
+	background-color: #ffffff;
+}
+
+.form-select:focus,
+.form-input:focus {
+	outline: 2px solid #0284c7;
+	outline-offset: -1px;
+}
+
+#trip-details {
+	margin: 0 0 25px 0;
+	padding: 10px 0 10px 0;
+	border-bottom: 1px solid #0284c7;
+}
+
 
 .action-button {
 	width: 100%;
@@ -374,6 +435,36 @@ select {
 
 .route-option.active .route-option-detail {
 	color: #e0f2fe;
+}
+
+.route-text-panel {
+	padding: 10px 20px;
+	background: #ffffff;
+	border-top: 1px solid #94a3b8;
+	border-bottom: 1px solid #0284c7;
+}
+
+.route-text-title {
+	margin: 0 0 6px 0;
+	font-family: var(--font-title);
+	font-size: 10px;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: #0369a1;
+}
+
+.route-details {
+	margin: 0;
+	padding: 10px;
+	background: #f8fafc;
+	border: 1px solid #94a3b8;
+	border-radius: 4px;
+	white-space: pre-wrap;
+	font-family: var(--font-default);
+	font-size: 12px;
+	color: #0f172a;
+	min-height: 110px;
+	overflow-x: auto;
 }
 
 @media (max-width: 1100px) {
