@@ -103,6 +103,7 @@ function animateBoard() {
 window.addEventListener("load", () => {
 	setTimeout(animateBoard, 300);
 	setInterval(animateBoard, 6000);
+	updatePaginationInfo();
 });
 
 // ===============================================
@@ -319,43 +320,59 @@ function updatePageNumber() {
 
 // Update page buttons and visible route buttons
 function updatePaginationInfo() {
-     const totalPages = Math.ceil(currentRoutes.length / ROUTES_PER_PAGE) || 1;
+    const totalPages = Math.ceil(currentRoutes.length / ROUTES_PER_PAGE);
 
-    pageInfo.textContent = (currentPage + 1) + " / " + totalPages;
+	if (!currentRoutes || currentRoutes.length === 0) {
+		prevBtn.style.display = "none";
+		nextBtn.style.display = "none";
+		pageInfo.textContent = "";
+		return;
+	}
 
-    prevBtn.style.display = currentPage > 0 ? "inline-block" : "none";
-    nextBtn.style.display = currentPage < totalPages ? "inline-block" : "none";
+	pageInfo.textContent = currentPage + 1;
+
+	prevBtn.style.display = currentPage > 0 ? "inline-block" : "none";
+	nextBtn.style.display = currentPage < totalPages - 1 ? "inline-block" : "none";
 }
 
 function updateRouteButtonsDisplay() {
-	const routeBarList = document.querySelector(".route-bar-list");
-    routeBarList.innerHTML = ""; // clear all buttons
 
-    const startIndex = currentPage * ROUTES_PER_PAGE;
-    const endIndex = Math.min(startIndex + ROUTES_PER_PAGE, currentRoutes.length);
 
-    for (let i = startIndex; i < endIndex; i++) {
-        const route = currentRoutes[i];
-        const stops = Math.max(0, route.paths.length - 1);
+	if (!currentRoutes || currentRoutes.length === 0) {
+		return;
+	}
 
-        const btn = document.createElement("button");
-        btn.className = "route-option";
-        btn.type = "button";
-        btn.dataset.routeOption = `route_${i + 1}`;
-        btn.setAttribute("aria-pressed", "false");
+	const startIndex = currentPage * ROUTES_PER_PAGE;
 
-        btn.innerHTML = `
-            <span class="route-option-name">Route ${i + 1}</span>
-            <span class="route-option-detail">${Math.round(route.total_distance)} km · ${Math.floor(route.total_time / 60)}h ${Math.round(route.total_time % 60)}m</span>
-            <span class="route-option-detail">${stops} ${stops === 1 ? "stop" : "stops"} · $${Math.round(route.price)}</span>
-        `;
+	routeOptionButtons.forEach((btn, i) => {
+		const routeIndex = startIndex + i;
 
-        btn.addEventListener("click", () => selectRoute(i));
+		if (routeIndex < currentRoutes.length) {
+			const route = currentRoutes[routeIndex];
+			const stops = Math.max(0, route.paths.length - 1);
 
-        routeBarList.appendChild(btn);
-    }
+			btn.style.display = "flex";
 
-    updatePaginationInfo();
+			const nameSpan = btn.querySelector(".route-option-name");
+			const detailSpans = btn.querySelectorAll(".route-option-detail");
+
+			if (nameSpan) nameSpan.textContent = `Route ${routeIndex + 1}`;
+			if (detailSpans.length > 0) {
+				detailSpans[0].textContent =
+					`${Math.round(route.total_distance)} km · ${Math.floor(route.total_time / 60)}h ${Math.round(route.total_time % 60)}m`;
+
+				detailSpans[1].textContent =
+					`${stops} ${stops === 1 ? "stop" : "stops"} · $${Math.round(route.price)}`;
+			}
+
+			btn.onclick = () => selectRoute(routeIndex);
+
+		} else {
+			btn.style.display = "none";
+		}
+	});
+
+	updatePaginationInfo();
 }
 
 function selectRoute(routeIndex) {
@@ -443,20 +460,20 @@ setupToggleButtons(filterButtons, async (button) => {
     const destinationAirport = destinationInput.dataset.airportCode || "";
 
     if (!originAirport || !destinationAirport) {
-        filterButtons.forEach(btn => btn.disabled = false);
-        return;
-    }
+		filterButtons.forEach(btn => btn.disabled = false);
+		return;
+}
 
     try {
         const result = await window.pywebview.api.get_routes(
             originAirport,
             destinationAirport,
             selectedFilter,
-            4
+            999
         );
 
         if (result && result.ok) {
-            currentRoutes = result.routes || [];
+            currentRoutes = (result.routes || []).slice(0, 50); // Reduce to prevent UI overload
 
             // Reset to first page and display first route
 			currentPage = 0;                
@@ -853,8 +870,37 @@ findRoutesButton.addEventListener("click", async () => {
 	const originAirport = originInput.dataset.airportCode || "";
 	const destinationAirport = destinationInput.dataset.airportCode || "";
 
-	currentRoutes = result.routes;
-	updateRouteButtonsDisplay(); // refresh the route buttons
+	if (!originAirport || !destinationAirport) {
+		alert("Please select both origin and destination airports.");
+		return;
+	}
+
+	try {
+		const result = await window.pywebview.api.get_routes(
+			originAirport,
+			destinationAirport,
+			selectedFilter,
+			999
+		);
+
+		if (!result || !result.ok) {
+			alert("Failed to retrieve routes.");
+			return;
+		}
+
+		currentRoutes = result.routes || [];
+
+		currentPage = 0;
+
+		updateRouteButtonsDisplay();
+
+		if (currentRoutes.length > 0) {
+			selectRoute(0);
+		}
+
+	} catch (error) {
+		console.error(error);
+	}
 
 	if (currentRoutes.length > 0) {
 		currentPage = 0;        // start at first page
@@ -863,11 +909,6 @@ findRoutesButton.addEventListener("click", async () => {
 		currentPage = 0;        // no routes
 	}
 	updatePaginationInfo();      // update the page display
-
-	if (!originAirport || !destinationAirport) {
-		alert("Please select both origin and destination airports.");
-		return;
-	}
 
 	if (
 		!(

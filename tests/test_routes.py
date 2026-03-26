@@ -51,19 +51,22 @@ def test():
     mode = "shortest"
 
     print(f"\nOptimisation Mode: {mode.upper()}")
-                
+
+    """         
     # NOTE: To use list[Route] for type safety
     # bfs_route: Route = find_route_least_connections(graph, "SIG", "CPX")
     bfs_route: list[Route] | None = find_route_least_connections(graph, start_airport, end_airport)
+    """
 
     # NOTE: implement input validation for shortest and cheapest (fastest)
     # dijkstra_route: Route = find_route_dijkstra(graph, "SIG", "CPX", mode=mode)
-    dijkstra_routes: list[Route] = find_routes_dijkstra(graph, start_airport, end_airport, mode=mode, max_routes=4)
+    dijkstra_routes: list[Route] = find_routes_dijkstra(graph, start_airport, end_airport, mode=mode)
 
     # NOTE: Bellman-Ford alternative shortest path algorithm
     # bellman_route: Route = find_route_bellmanFord(graph, "SIG", "CPX", mode=mode)
-    bellman_routes: list[Route] = find_routes_bellmanFord(graph, start_airport, end_airport, mode=mode, max_routes=4)
+    bellman_routes: list[Route] = find_routes_bellmanFord(graph, start_airport, end_airport, mode=mode)
 
+    """
     print(f"BFS Result: {bfs_route}")
     # Calculate total bfs distance
     # NOTE: Convert to helper function
@@ -75,6 +78,7 @@ def test():
             total_km += path.distance_km
             total_min += path.duration_min
         print(f"\nBFS algo distance: {total_km}km | Time: {total_min} minutes")
+    """
 
     """
     print(f"\nDjikstra (shortest) Result: {dijkstra_route}")

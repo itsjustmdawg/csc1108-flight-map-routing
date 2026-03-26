@@ -45,7 +45,7 @@ class SkyPathApi:
 
     # def draw_route(self, src_code, dest_code):
 
-    def get_routes(self, src_code, dest_code, selected_filter, max_routes=4):
+    def get_routes(self, src_code, dest_code, selected_filter, max_routes=None):
         if not src_code or not dest_code:
             return {"error": "Source and destination codes are required."}
 
