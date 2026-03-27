@@ -100,7 +100,8 @@ class SkyPathApi:
             routes = src.algorithms.find_routes_astar(
                 self.flight_graph,
                 start_airport,
-                end_airport
+                end_airport,
+                max_routes=max_routes
             )
 
         # bellman ford with price as weight
@@ -127,7 +128,8 @@ class SkyPathApi:
             routes = src.algorithms.find_route_least_connections(
                 self.flight_graph,
                 start_airport,
-                end_airport
+                end_airport,
+                max_routes=max_routes
             )
 
         # Handle case where no routes are found
@@ -187,4 +189,3 @@ if __name__ == "__main__":
         min_size=(800, 600),
     )
     webview.start(debug=False)
-

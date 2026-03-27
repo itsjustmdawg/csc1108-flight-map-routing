@@ -434,7 +434,7 @@ function displayRouteOnMap(routeIndex) {
 
 		// Plot waypoint markers across all routes, make unselected variant markers translucent too
 		for (let i = 1; i < waypoints.length; i++) {
-			const marker = L.marker(waypoints[i], { opacity: isSelected ? 1.0 : 0.4 }).addTo(map);
+			const marker = L.marker(waypoints[i], { opacity: isSelected ? 1.0 : 0.2 }).addTo(map);
 			const airportCode = i === waypoints.length - 1
 					? route.paths[route.paths.length - 1].destination
 					: route.paths[i - 1].destination;
@@ -549,7 +549,7 @@ function updateRouteHighlighting(selectedIndex) {
 		}
 
 		anim.markers.forEach(marker => {
-			marker.setOpacity(isSelected ? 1.0 : 0.4);
+			marker.setOpacity(isSelected ? 1.0 : 0.2);
 		});
 	});
 
@@ -748,7 +748,6 @@ function setupToggleButtons(buttonNodeList, onToggle) {
 const filterButtons = document.querySelectorAll(".filter-option");
 let selectedFilter = "shortest_distance";
 const routeOptionButtons = document.querySelectorAll(".route-option");
-let selectedRouteOption = "route_1";
 
 const originInput = document.getElementById("origin");
 const destinationInput = document.getElementById("destination");
@@ -773,12 +772,6 @@ const POPULAR_AIRPORT_LIMIT = 20;
 
 setupToggleButtons(filterButtons, (button) => {
 	selectedFilter = button.dataset.filter;
-});
-
-setupToggleButtons(routeOptionButtons, (button) => {
-	selectedRouteOption = button.dataset.routeOption;
-	const routeIndex = Array.from(routeOptionButtons).indexOf(button);
-	selectRoute(routeIndex);
 });
 
 function buildAirportOptionLabel(airport) {
