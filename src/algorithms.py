@@ -5,17 +5,18 @@ from src.adt import FlightGraph, Airport, Route, Path
 from src.utils import calculate_haversine_distance
 
 # BFS
-def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end_airport: Airport) -> list[Route] | None:
+def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end_airport: Airport, max_routes: int = 4) -> list[Route]:
     """
-    Finds the route with the fewest layovers between two airports using BFS.
+    Finds multiple route options with the fewest layovers between two airports using BFS.
 
     Parameters:
     graph (FlightGraph): The data structure of the cleaned JSON data.
     start_airport (Airport): The starting airport object.
     end_airport (Airport): The destination airport object.
+    max_routes (int): Maximum number of alternative routes to return.
 
     Returns:
-    list[Route]: A list containing one Route object representing the path with fewest stops, or None if no path exists.
+        list[Route]: A list of route options from best (fewest stops) to less optimal.
     """
 
     # Extract iata from Airport class
@@ -24,33 +25,46 @@ def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end
 
     # Validate if iata is in graph dataset
     if not graph.has_airport(start_iata) or not graph.has_airport(end_iata):
-        return None
+        return []
 
-    # Initialize a queue for BFS that stores tuples containing the current airport, the path of IATA codes, and the path of Path objects
+    routes: list[Route] = []
+    seen_signatures: set[tuple[tuple[str, str], ...]] = set()
+    visit_count: dict[str, int] = {}
+
+    # Initialize a queue for BFS that stores tuples of Path objects
     queue = deque([(start_iata, [start_iata], [])])
 
-    # Set to keep track of visited airports to prevent infinite loops
-    visited = {start_iata}
-
-    while queue:
+    while queue and len(routes) < max_routes:
         # Dequeue the first element
         current_iata, current_path_iatas, current_path_objects = queue.popleft()
 
+        # Track how many times we've expanded this airport
+        visit_count[current_iata] = visit_count.get(current_iata, 0) + 1
+
+        # Stop expanding if we've visited this node enough times to satisfy max_routes
+        if visit_count[current_iata] > max_routes:
+            continue
+
         # If the destination is reached, construct and return the Route
         if current_iata == end_iata:
-            # Calculate totals
-            total_distance = sum(path.distance_km for path in current_path_objects)
-            total_duration = sum(path.duration_min for path in current_path_objects)
-            total_price = sum(path.price for path in current_path_objects)
+            signature = tuple((p.source, p.destination) for p in current_path_objects)
             
-            # Create and return Route object wrapped in a list
-            route = Route(
-                distance_km=total_distance,
-                duration_min=total_duration,
-                paths=current_path_objects,
-                price=total_price
-            )
-            return [route]
+            if signature not in seen_signatures:
+                seen_signatures.add(signature)
+                
+                total_distance = sum(path.distance_km for path in current_path_objects)
+                total_duration = sum(path.duration_min for path in current_path_objects)
+                total_price = sum(path.price for path in current_path_objects)
+                
+                route = Route(
+                    distance_km=total_distance,
+                    duration_min=total_duration,
+                    paths=current_path_objects,
+                    price=total_price
+                )
+                routes.append(route)
+                
+            continue
 
         # Iterate through neighbouring nodes from the current airport
         for path_obj in graph.get_neighbours(current_iata):
@@ -58,19 +72,16 @@ def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end
             # Assign route destination to local variable
             destination: str = path_obj.destination
 
-            # Appending relevant list to eventually meet search condition above
-            if destination not in visited:
+            # Cycle Prevention: don't revisit airports already in the current path
+            if destination in current_path_iatas:
+                continue
 
-                # Append current destination to list of visited nodes
-                visited.add(destination)
+            # Create a new path list appending the neighbor
+            new_path_iatas = current_path_iatas + [destination]
+            new_path_objects = current_path_objects + [path_obj]
+            queue.append((destination, new_path_iatas, new_path_objects))
 
-                # Create a new path list appending the neighbor
-                new_path_iatas = current_path_iatas + [destination]
-                new_path_objects = current_path_objects + [path_obj]
-                queue.append((destination, new_path_iatas, new_path_objects))
-
-    # Return None if the queue empties and no path is found
-    return None
+    return routes
 
 # Internal helper function for Dijkstra's Algorithm
 def _reconstruct_path(prev_path: dict, start: str, end: str) -> Route | None:
