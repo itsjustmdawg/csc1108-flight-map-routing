@@ -125,9 +125,6 @@ let waypointMarkers = [];
 let routeAnimations = [];
 let renderedRoutes = null;
 let animationFrameId = null;
-let routeAnimations = [];
-let renderedRoutes = null;
-let animationFrameId = null;
 
 function getAirportFromInput(inputElement) {
 	const selectedCode = inputElement.dataset.airportCode || "";
