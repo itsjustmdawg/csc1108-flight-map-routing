@@ -270,6 +270,27 @@ function clearRoutesAndButtons() {
 }
 
 function displayRouteOnMap(routeIndex) {
+    const routeOptionButtons = document.querySelectorAll(".route-option");
+    routeOptionButtons.forEach((btn, index) => {
+        btn.style.display = "flex";
+        const nameSpan = btn.querySelector(".route-option-name");
+        const detailSpans = btn.querySelectorAll(".route-option-detail");
+ 
+        if (nameSpan) nameSpan.textContent = `Route ${index + 1}`;
+        if (detailSpans.length > 0) {
+            detailSpans[0].textContent = "-";
+            detailSpans[1].textContent = "-"; 
+        }
+ 
+        btn.classList.remove("active");
+        btn.setAttribute("aria-pressed", "false");
+    });
+ 
+    currentPage = 0;
+    updatePaginationInfo();
+}
+ 
+function displayRouteOnMap(routeIndex) {
 	if (routeIndex < 0 || routeIndex >= currentRoutes.length) {
 		return;
 	}
