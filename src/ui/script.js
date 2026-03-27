@@ -453,43 +453,110 @@ function renderRouteDetails(routeIndex) {
 	routeDetailsElement.textContent = getRouteText(currentRoutes[routeIndex], routeIndex);
 }
 
-function updateRouteButtonsDisplay() {
-	const routeOptionButtons = document.querySelectorAll(".route-option");
+/// ===============================================
+// Pagination state
+// ===============================================
+const ROUTES_PER_PAGE = 4;
+let currentPage = 0;
+let selectedRouteIndex = 0;
 
-	routeOptionButtons.forEach((button, index) => {
-		if (index >= currentRoutes.length) {
-			button.style.display = "none";
-			return;
-		}
+const prevBtn = document.getElementById("prev-page");
+const nextBtn = document.getElementById("next-page");
+const pageInfo = document.getElementById("page-info");
 
-		button.style.display = "";
-		const route = currentRoutes[index];
-		const stops = Math.max(0, route.paths.length - 1); // Number of stops = segments - 1
+/**
+ * Updates the prev/next button visibility and page indicator.
+ * Rules:
+ *  - Both buttons hidden when there are no routes
+ *  - Prev hidden on first page (page 0)
+ *  - Next hidden on last page
+ *  - Page indicator hidden when no routes
+ */
+function updatePaginationControls() {
+	const totalPages = Math.ceil(currentRoutes.length / ROUTES_PER_PAGE);
 
-		const nameSpan = button.querySelector(".route-option-name");
-		const detailSpans = button.querySelectorAll(".route-option-detail");
+	if (!currentRoutes || currentRoutes.length === 0) {
+		prevBtn.style.display = "none";
+		nextBtn.style.display = "none";
+		pageInfo.textContent = "";
+		return;
+	}
 
-		nameSpan.textContent = `Route ${index + 1}`;
-		detailSpans[0].textContent = `${Math.round(route.total_distance)} km · ${Math.round(route.total_time / 60)}h ${Math.round(route.total_time % 60)}m`;
-		detailSpans[1].textContent = `${stops} ${stops === 1 ? "stop" : "stops"} · $${Math.round(route.price)}`;
-	});
+	// Show current page number (1-based for display)
+	pageInfo.textContent = `${currentPage + 1}`;
+
+	// Hide prev on first page, hide next on last page
+	prevBtn.style.display = currentPage > 0 ? "flex" : "none";
+	nextBtn.style.display = currentPage < totalPages - 1 ? "flex" : "none";
 }
 
-function selectRoute(routeIndex) {
+function updateRouteButtonsDisplay() {
 	const routeOptionButtons = document.querySelectorAll(".route-option");
-	routeOptionButtons.forEach((btn, index) => {
-		if (index === routeIndex) {
-			btn.classList.add("active");
-			btn.setAttribute("aria-pressed", "true");
+	const startIndex = currentPage * ROUTES_PER_PAGE;
+
+	routeOptionButtons.forEach((btn, i) => {
+		const routeIndex = startIndex + i;
+
+		if (routeIndex < currentRoutes.length) {
+			const route = currentRoutes[routeIndex];
+			const stops = Math.max(0, route.paths.length - 1);
+
+			btn.style.display = "flex";
+
+			const nameSpan = btn.querySelector(".route-option-name");
+			const detailSpans = btn.querySelectorAll(".route-option-detail");
+
+			if (nameSpan) nameSpan.textContent = `Route ${routeIndex + 1}`;
+			if (detailSpans[0])
+				detailSpans[0].textContent = `${Math.round(route.total_distance)} km · ${Math.floor(route.total_time / 60)}h ${Math.round(route.total_time % 60)}m`;
+			if (detailSpans[1])
+				detailSpans[1].textContent = `${stops} ${stops === 1 ? "stop" : "stops"} · $${Math.round(route.price)}`;
+
+			btn.classList.toggle("active", routeIndex === selectedRouteIndex);
+			btn.setAttribute("aria-pressed", routeIndex === selectedRouteIndex ? "true" : "false");
+			btn.onclick = () => selectRoute(routeIndex);
 		} else {
+			// No route for this slot — hide the button
+			btn.style.display = "none";
 			btn.classList.remove("active");
 			btn.setAttribute("aria-pressed", "false");
 		}
 	});
 
+	updatePaginationControls();
+}
+
+function selectRoute(routeIndex) {
+	if (routeIndex < 0 || routeIndex >= currentRoutes.length) return;
+
+	selectedRouteIndex = routeIndex;
+	currentPage = Math.floor(routeIndex / ROUTES_PER_PAGE);
+	updateRouteButtonsDisplay();
 	displayRouteOnMap(routeIndex);
 	renderRouteDetails(routeIndex);
 }
+
+// Prev / Next button click handlers
+prevBtn.addEventListener("click", () => {
+	if (currentPage > 0) {
+		currentPage--;
+		selectedRouteIndex = currentPage * ROUTES_PER_PAGE;
+		updateRouteButtonsDisplay();
+		displayRouteOnMap(selectedRouteIndex);
+		renderRouteDetails(selectedRouteIndex);
+	}
+});
+
+nextBtn.addEventListener("click", () => {
+	const totalPages = Math.ceil(currentRoutes.length / ROUTES_PER_PAGE);
+	if (currentPage < totalPages - 1) {
+		currentPage++;
+		selectedRouteIndex = currentPage * ROUTES_PER_PAGE;
+		updateRouteButtonsDisplay();
+		displayRouteOnMap(selectedRouteIndex);
+		renderRouteDetails(selectedRouteIndex);
+	}
+});
 
 // ===============================================
 // Airport search dropdown logic
@@ -966,7 +1033,7 @@ findRoutesButton.addEventListener("click", async () => {
 			originAirport,
 			destinationAirport,
 			selectedFilter,
-			4,
+			10,
 			cabinClass,
 			tripType,
 			departureDate
