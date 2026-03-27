@@ -125,6 +125,9 @@ let waypointMarkers = [];
 let routeAnimations = [];
 let renderedRoutes = null;
 let animationFrameId = null;
+let routeAnimations = [];
+let renderedRoutes = null;
+let animationFrameId = null;
 
 function getAirportFromInput(inputElement) {
 	const selectedCode = inputElement.dataset.airportCode || "";
@@ -239,6 +242,10 @@ function clearRoutes() {
 function clearRoutesAndButtons() {
 	currentRoutes = [];
 	clearRouteVisualization();
+	updateRouteButtonsDisplay();
+}
+
+function displayRouteOnMap(routeIndex) {
     const routeOptionButtons = document.querySelectorAll(".route-option");
     routeOptionButtons.forEach((btn, index) => {
         btn.style.display = "flex";
