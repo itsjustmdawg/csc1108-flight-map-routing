@@ -146,6 +146,7 @@ let destinationMarker = null;
 let currentRoutes = [];
 let routePolylines = [];
 let waypointMarkers = [];
+let reachableMarkers = [];
 let routeAnimations = [];
 let renderedRoutes = null;
 let animationFrameId = null;
@@ -253,6 +254,16 @@ function clearRouteVisualization() {
 		}
 	});
 	waypointMarkers = [];
+
+	if (typeof reachableMarkers !== 'undefined') {
+		reachableMarkers.forEach((marker) => {
+			if (map.hasLayer(marker)) {
+				map.removeLayer(marker);
+			}
+		});
+		reachableMarkers = [];
+	}
+
 	routeAnimations = [];
 	renderedRoutes = null;
 }
@@ -274,7 +285,7 @@ function clearRoutesAndButtons() {
 	updateRouteButtonsDisplay();
     const routeOptionButtons = document.querySelectorAll(".route-option");
     routeOptionButtons.forEach((btn, index) => {
-        btn.style.display = "flex";
+        btn.style.display = "none";
         const nameSpan = btn.querySelector(".route-option-name");
         const detailSpans = btn.querySelectorAll(".route-option-detail");
  
@@ -289,7 +300,7 @@ function clearRoutesAndButtons() {
     });
  
     currentPage = 0;
-    updatePaginationInfo();
+    updatePaginationControls();
 }
  
 function displayRouteOnMap(routeIndex) {
@@ -1295,6 +1306,278 @@ wireSearchableDropdown(
 	destinationContainer,
 );
 
+// ====== TASK 2 UI INJECTION ======
+const tripTypeWrapper = tripTypeSelect.closest('.field-wrapper');
+if (tripTypeWrapper && tripTypeWrapper.parentNode) {
+	const parent = tripTypeWrapper.parentNode;
+	
+	const style = document.createElement('style');
+	style.textContent = `
+		.persona-btn {
+			background-color: #1e293b;
+			color: #94a3b8;
+			border: 1px solid #334155;
+			border-radius: 8px;
+			padding: 8px;
+			font-size: 0.8rem;
+			cursor: pointer;
+			transition: all 0.2s;
+			flex: 1 1 calc(50% - 4px);
+			text-align: center;
+		}
+		.persona-btn:hover {
+			background-color: #334155;
+			color: #f8fafc;
+		}
+		.persona-btn.active {
+			background-color: #0ea5e9;
+			color: #ffffff;
+			border-color: #0ea5e9;
+		}
+	`;
+	document.head.appendChild(style);
+
+	const personaWrapper = document.createElement('div');
+	personaWrapper.className = 'field-wrapper';
+	personaWrapper.id = 'persona-wrapper';
+	personaWrapper.innerHTML = `
+		<label>Select Persona</label>
+		<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+			<button type="button" class="persona-btn" data-persona="backpacker">🎒 Backpacker</button>
+			<button type="button" class="persona-btn" data-persona="business">💼 Business</button>
+			<button type="button" class="persona-btn" data-persona="athlete">🏃 Athlete</button>
+			<button type="button" class="persona-btn" data-persona="minimalist">🧘 Minimalist</button>
+		</div>
+	`;
+	
+	parent.insertBefore(personaWrapper, tripTypeWrapper);
+
+	const exploreWrapper = document.createElement('div');
+	exploreWrapper.className = 'field-wrapper';
+	exploreWrapper.innerHTML = `
+		<label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+			<input type="checkbox" id="explore-mode" style="width: auto; margin: 0;">
+			Explore Mode (Budget)
+		</label>
+	`;
+	
+	const budgetWrapper = document.createElement('div');
+	budgetWrapper.className = 'field-wrapper';
+	budgetWrapper.id = 'budget-wrapper';
+	budgetWrapper.style.display = 'none';
+	budgetWrapper.innerHTML = `
+		<label>Max Budget ($)</label>
+		<input type="number" id="max-budget" class="form-input" placeholder="e.g. 500" min="0" step="10">
+	`;
+	
+	const airlineWrapper = document.createElement('div');
+	airlineWrapper.className = 'field-wrapper';
+	airlineWrapper.innerHTML = `
+		<label>Preferred Airline</label>
+		<select id="preferred-airline" class="form-input">
+			<option value="">No Preference</option>
+		</select>
+	`;
+	
+	parent.insertBefore(exploreWrapper, tripTypeWrapper.nextSibling);
+	parent.insertBefore(budgetWrapper, exploreWrapper.nextSibling);
+	parent.insertBefore(airlineWrapper, budgetWrapper.nextSibling);
+}
+
+const exploreModeToggle = document.getElementById("explore-mode");
+const budgetInput = document.getElementById("max-budget");
+const preferredAirlineInput = document.getElementById("preferred-airline");
+
+if (exploreModeToggle) {
+	exploreModeToggle.addEventListener("change", (e) => {
+		const isExplore = e.target.checked;
+		const destWrapper = destinationInput.closest('.field-wrapper');
+		const swapWrapper = document.getElementById("swap");
+		const budgetWrapper = document.getElementById("budget-wrapper");
+		const currentFilters = document.querySelectorAll(".filter-option");
+		
+		if (isExplore) {
+			if (destWrapper) {
+				destWrapper.style.opacity = "0.5";
+				destWrapper.style.pointerEvents = "none";
+			}
+			destinationInput.disabled = true;
+			if (swapWrapper) swapWrapper.style.opacity = "0.5";
+			if (budgetWrapper) budgetWrapper.style.display = "block";
+			tripTypeSelect.value = "oneway";
+			tripTypeSelect.disabled = true;
+			tripTypeSelect.dispatchEvent(new Event('change'));
+
+			clearRoutesAndButtons();
+			setAirportMarker("destination", null, true);
+
+			currentFilters.forEach(btn => {
+				btn.disabled = true;
+				btn.style.opacity = "0.5";
+				btn.style.pointerEvents = "none";
+			});
+
+			document.querySelectorAll('.persona-btn').forEach(btn => {
+				btn.disabled = true;
+				btn.style.opacity = "0.5";
+				btn.style.pointerEvents = "none";
+			});
+		} else {
+			if (destWrapper) {
+				destWrapper.style.opacity = "1";
+				destWrapper.style.pointerEvents = "auto";
+			}
+			destinationInput.disabled = false;
+			if (swapWrapper) swapWrapper.style.opacity = "1";
+			if (budgetWrapper) budgetWrapper.style.display = "none";
+			tripTypeSelect.disabled = false;
+
+			clearRoutesAndButtons();
+
+			updateMarkerForInput(destinationInput);
+
+			currentFilters.forEach(btn => {
+				btn.disabled = false;
+				btn.style.opacity = "1";
+				btn.style.pointerEvents = "auto";
+			});
+
+			document.querySelectorAll('.persona-btn').forEach(btn => {
+				btn.disabled = false;
+				btn.style.opacity = "1";
+				btn.style.pointerEvents = "auto";
+			});
+		}
+	});
+}
+
+// Add Fewest Stops button to filter-options if not present
+const filterContainer = filterButtons.length > 0 ? filterButtons[0].closest('.filter-options') : null;
+if (filterContainer && !document.querySelector('[data-filter="fewest_stops"]')) {
+	const fewestBtn = document.createElement("button");
+	fewestBtn.className = "filter-option";
+	fewestBtn.dataset.filter = "fewest_stops";
+	fewestBtn.textContent = "Fewest Stops";
+	filterContainer.appendChild(fewestBtn);
+	
+	const allFilters = document.querySelectorAll(".filter-option");
+	setupToggleButtons(allFilters, (button) => {
+		selectedFilter = button.dataset.filter;
+	});
+}
+
+// ====== PERSONA WIRING & LOGIC ======
+const personaButtons = document.querySelectorAll('.persona-btn');
+let isApplyingPersona = false;
+
+function deselectAllPersonas() {
+	personaButtons.forEach(btn => btn.classList.remove('active'));
+}
+
+function handleManualOverride() {
+	if (!isApplyingPersona) {
+		deselectAllPersonas();
+	}
+}
+
+personaButtons.forEach(btn => {
+	btn.addEventListener('click', () => {
+		isApplyingPersona = true;
+		deselectAllPersonas();
+		btn.classList.add('active');
+		
+		const persona = btn.dataset.persona;
+		let targetFilter = '';
+		let targetCabin = '';
+		
+		if (persona === 'backpacker') {
+			targetFilter = 'cheap'; // Matches "cheap" or "cheapest"
+			targetCabin = 'economy';
+			if (preferredAirlineInput) preferredAirlineInput.value = '';
+		} else if (persona === 'business') {
+			targetFilter = 'fast'; // Matches "fast" or "fastest"
+			targetCabin = 'business';
+			if (preferredAirlineInput) preferredAirlineInput.value = '';
+		} else if (persona === 'athlete') {
+			targetFilter = 'short'; // Matches "short", "shortest", or "shortest_distance"
+			targetCabin = 'economy';
+		} else if (persona === 'minimalist') {
+			targetFilter = 'fewest'; // Matches "fewest" or "fewest_stops"
+		}
+		
+		if (targetFilter) {
+			const allFilters = document.querySelectorAll(".filter-option");
+			allFilters.forEach(fBtn => {
+				if (fBtn.dataset.filter && fBtn.dataset.filter.includes(targetFilter)) {
+					fBtn.click();
+				}
+			});
+		}
+		
+		if (targetCabin && cabinClassSelect) {
+			cabinClassSelect.value = targetCabin;
+			// Dispatch change event so the airline dropdown accurately re-filters
+			cabinClassSelect.dispatchEvent(new Event('change'));
+		}
+		
+		isApplyingPersona = false;
+	});
+});
+
+if (cabinClassSelect) {
+	cabinClassSelect.addEventListener('change', () => {
+		handleManualOverride();
+		if (typeof updateAirlineDropdown === 'function') updateAirlineDropdown();
+	});
+}
+if (preferredAirlineInput) {
+	preferredAirlineInput.addEventListener('change', handleManualOverride);
+}
+document.querySelectorAll(".filter-option").forEach(btn => {
+	btn.addEventListener('click', handleManualOverride);
+});
+
+function displayReachableAirports(reachableDict, maxBudget) {
+	clearRoutesAndButtons();
+	
+	const bounds = [];
+	
+	for (const [iata, cost] of Object.entries(reachableDict)) {
+		const airport = airportByCode.get(iata);
+		if (airport && hasValidCoordinates(airport)) {
+			const percentage = (cost / maxBudget) * 100;
+			let strokeColor, fillColor;
+			
+			if (percentage <= 33.33) {
+				strokeColor = '#16a34a'; // Green
+				fillColor = '#4ade80';
+			} else if (percentage <= 66.66) {
+				strokeColor = '#eab308'; // Yellow
+				fillColor = '#fde047';
+			} else {
+				strokeColor = '#dc2626'; // Red
+				fillColor = '#f87171';
+			}
+
+			const marker = L.circleMarker([airport.latitude, airport.longitude], {
+				color: strokeColor,
+				fillColor: fillColor,
+				fillOpacity: 0.8,
+				radius: 6,
+				weight: 2
+			}).addTo(map);
+			
+			marker.bindPopup(`<b>${airport.name} (${iata})</b><br>Budget Used: $${cost.toFixed(2)} (${percentage.toFixed(1)}%)`);
+			reachableMarkers.push(marker);
+			bounds.push([airport.latitude, airport.longitude]);
+		}
+	}
+	
+	if (bounds.length > 0) {
+		map.fitBounds(L.latLngBounds(bounds), { padding: [40, 40] });
+	}
+}
+
 // Add multi-city option to the trip type dropdown if not already present
 if (!Array.from(tripTypeSelect.options).some(opt => opt.value === "multicity")) {
 	const mcOption = document.createElement("option");
@@ -1581,6 +1864,38 @@ function removeMultiCityFlight(indexToRemove) {
 findRoutesButton.addEventListener("click", async () => {
 	const tripType = tripTypeSelect.value || "oneway";
 	const cabinClass = cabinClassSelect.value || "economy";
+	const prefAirline = preferredAirlineInput && preferredAirlineInput.value.trim() !== "" ? preferredAirlineInput.value.trim().toUpperCase() : null;
+	const isExplore = exploreModeToggle ? exploreModeToggle.checked : false;
+	const budget = budgetInput ? parseFloat(budgetInput.value) : 0;
+
+	if (isExplore) {
+		const originAirport = originInput.dataset.airportCode || "";
+		if (!originAirport) {
+			alert("Please select an origin airport for Explore Mode.");
+			return;
+		}
+		if (!budget || budget <= 0) {
+			alert("Please enter a valid max budget for Explore Mode.");
+			return;
+		}
+		
+		try {
+			const result = await window.pywebview.api.get_reachable_airports(originAirport, budget, cabinClass, prefAirline);
+			if (!result || !result.ok) {
+				alert("Failed to explore reachable airports: " + (result?.error || "Unknown error"));
+				return;
+			}
+			displayReachableAirports(result.reachable, budget);
+			
+			if (routeDetailsElement) {
+				routeDetailsElement.innerHTML = `<div class='route-empty'>Explore Mode: Found ${Object.keys(result.reachable).length} reachable destinations under $${budget}.</div>`;
+				routeDetailsElement.style.height = "";
+			}
+		} catch (error) {
+			console.error("Error finding reachable airports:", error);
+		}
+		return;
+	}
 
 	// ---- Multi-city validation and payload ----
 	if (tripType === "multicity") {
@@ -1602,7 +1917,8 @@ findRoutesButton.addEventListener("click", async () => {
 				mcData,
 				selectedFilter,
 				10,
-				cabinClass
+				cabinClass,
+				prefAirline
 			);
 			
 			if (!result || !result.ok) {
@@ -1618,6 +1934,15 @@ findRoutesButton.addEventListener("click", async () => {
 				selectRoute(0);
 			} else {
 				console.log("No routes found for the selected airports.");
+				clearRouteVisualization();
+				if (routeDetailsElement) {
+					if (prefAirline) {
+						routeDetailsElement.innerHTML = "<div class='route-empty'>Preferred airline does not exist for this route</div>";
+					} else {
+						routeDetailsElement.innerHTML = "<div class='route-empty'>No routes found for the selected airports.</div>";
+					}
+					routeDetailsElement.style.height = "";
+				}
 			}
 		} catch (error) {
 			console.error("Error while finding routes:", error);
@@ -1671,7 +1996,8 @@ if (
 			cabinClass,
 			tripType,
 			departureDate,
-			returnDate
+			returnDate,
+			prefAirline
 		);
 		if (!result || !result.ok) {
 			console.error("Failed to retrieve routes:", result?.error);
@@ -1694,10 +2020,71 @@ if (
 			selectRoute(0);
 		} else {
 			console.log("No routes found for the selected airports.");
+			clearRouteVisualization();
+			if (routeDetailsElement) {
+				if (prefAirline) {
+					routeDetailsElement.innerHTML = "<div class='route-empty'>Preferred airline does not exist for this route</div>";
+				} else {
+					routeDetailsElement.innerHTML = "<div class='route-empty'>No routes found for the selected airports.</div>";
+				}
+				routeDetailsElement.style.height = "";
+			}
 		}
 	} catch (error) {
 		console.error("Error while finding routes:", error);
 	}
 });
 
-window.addEventListener("pywebviewready", loadAirports);
+let allAirlines = [];
+
+function updateAirlineDropdown() {
+	const prefAirlineSelect = document.getElementById("preferred-airline");
+	if (!prefAirlineSelect || !allAirlines || allAirlines.length === 0) return;
+	
+	const currentSelection = prefAirlineSelect.value;
+	const selectedCabinClass = cabinClassSelect ? cabinClassSelect.value : "economy";
+	
+	prefAirlineSelect.innerHTML = '<option value="">No Preference</option>';
+	
+	const filteredAirlines = allAirlines.filter(airline => {
+		return airline.classes && airline.classes.includes(selectedCabinClass);
+	});
+	
+	filteredAirlines.forEach((airline) => {
+		const opt = document.createElement("option");
+		opt.value = airline.iata;
+		opt.textContent = airline.name || airline.iata;
+		prefAirlineSelect.appendChild(opt);
+	});
+	
+	// Restore previous selection if it's still available, otherwise reset
+	if (filteredAirlines.some(a => a.iata === currentSelection)) {
+		prefAirlineSelect.value = currentSelection;
+	} else {
+		prefAirlineSelect.value = "";
+	}
+}
+
+async function loadAirlines() {
+	if (
+		!(
+			window.pywebview &&
+			window.pywebview.api &&
+			window.pywebview.api.get_airlines
+		)
+	) {
+		return;
+	}
+
+	try {
+		allAirlines = await window.pywebview.api.get_airlines();
+		updateAirlineDropdown();
+	} catch (error) {
+		console.error("Failed to load airlines:", error);
+	}
+}
+
+window.addEventListener("pywebviewready", () => {
+	loadAirports();
+	loadAirlines();
+});
