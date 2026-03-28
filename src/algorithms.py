@@ -132,7 +132,7 @@ def _reconstruct_path(prev_path: dict, start: str, end: str) -> Route | None:
 
 
 # Blocked-edge version of Dijkstra
-def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest", blocked_edges = None) -> Route | None:
+def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest", blocked_edges=None, preferred_carrier_iata: str = None) -> Route | None:
     """
     Finds the optimal route between two airports using Dijkstra's algorithm 
     while ignoring blocked edges (edge meaning flight route between airports). (taught algorithm)
@@ -141,7 +141,8 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
     graph       (FlightGraph): The cleaned flight graph.
     start_iata  (str): The 3-letter IATA code of the starting airport.
     end_iata    (str): The 3-letter IATA code of the destination airport.
-    mode        (str): "shortest" for distance, "fastest" for duration, "cheapest" for price
+    mode        (str): "shortest" for distance, "fastest" for duration, "cheapest" for price, "fewest_stops" for stops
+    preferred_carrier_iata (str): Optional IATA code of the preferred airline.
 
     Returns:
     Route | None: A list of airport IATA codes representing the optimal path, or None if no path exists.
@@ -184,6 +185,10 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
             if (path.source, path.destination) in blocked_edges:
                 continue
 
+            if preferred_carrier_iata:
+                if not any(carrier.iata == preferred_carrier_iata for carrier in (path.airlines or [])):
+                    continue
+
             # Determine edge weight based on selected optimisation mode
             if mode == "shortest":
                 weight = float(path.distance_km)
@@ -191,8 +196,10 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
                 weight = float(path.duration_min)
             elif mode == "cheapest":
                 weight = float(path.price)
+            elif mode == "fewest_stops":
+                weight = 1.0
             else:
-                raise ValueError("mode must be 'shortest', 'fastest', or 'cheapest'")
+                raise ValueError("mode must be 'shortest', 'fastest', 'cheapest', or 'fewest_stops'")
 
             # Calculate new accumulated cost
             new_cost = cur_cost + weight
@@ -213,7 +220,7 @@ def _find_route_dijkstra_blocked(graph: FlightGraph, start_iata: str, end_iata: 
     return None
 
 # Dijkstra: return multiple routes
-def find_routes_dijkstra(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode = "shortest", max_routes: int = 4) -> list[Route]:
+def find_routes_dijkstra(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode="shortest", max_routes: int = 4, preferred_carrier_iata: str = None) -> list[Route]:
     """
     Finds multiple route options between two airports using repeated Dijkstra runs.
 
@@ -221,7 +228,8 @@ def find_routes_dijkstra(graph: FlightGraph, start_airport: Airport, end_airport
     graph       (FlightGraph): The cleaned flight graph.
     start_iata  (str): The 3-letter IATA code of the starting airport.
     end_iata    (str): The 3-letter IATA code of the destination airport.
-    mode        (str): "shortest" for distance, "fastest" for duration, "cheapest" for price
+    mode        (str): "shortest" for distance, "fastest" for duration, "cheapest" for price, "fewest_stops" for stops
+    preferred_carrier_iata (str): Optional IATA code of the preferred airline.
 
     Returns:
     list[Route]: A list of route options from best to less optimal.
@@ -239,7 +247,8 @@ def find_routes_dijkstra(graph: FlightGraph, start_airport: Airport, end_airport
             start_iata,
             end_iata,
             mode = mode,
-            blocked_edges = blocked_edges
+            blocked_edges = blocked_edges,
+            preferred_carrier_iata = preferred_carrier_iata
         )
 
         # Stop when no more routes can be found
@@ -531,3 +540,50 @@ def find_routes_astar(graph: FlightGraph, start_airport: Airport, end_airport: A
             heapq.heappush(pq, (f_neighbor, push_count, tentative_g, neighbor_iata, new_paths))
 
     return routes
+
+def find_reachable_airports(graph: FlightGraph, start_iata: str, budget: float, preferred_carrier_iata: str = None, cabin_multiplier: float = 1.0) -> dict[str, float]:
+    """
+    Finds all reachable airports within a given budget using Dijkstra's algorithm.
+
+    Parameters:
+    graph (FlightGraph): The cleaned flight graph.
+    start_iata (str): The 3-letter IATA code of the starting airport.
+    budget (float): The maximum allowed cumulative price.
+    preferred_carrier_iata (str): Optional IATA code of the preferred airline.
+    cabin_multiplier (float): Multiplier for the price based on cabin class.
+
+    Returns:
+    dict[str, float]: A dictionary mapping reachable airport IATA codes to their total cost.
+    """
+    if not graph.has_airport(start_iata):
+        return {}
+
+    dist: dict[str, float] = {start_iata: 0.0}
+    pq: list[tuple[float, str]] = [(0.0, start_iata)]
+    reachable: dict[str, float] = {}
+
+    while pq:
+        cur_cost, cur_airport = heapq.heappop(pq)
+
+        if cur_cost > budget:
+            continue
+
+        if cur_cost != dist.get(cur_airport, float("inf")):
+            continue
+
+        if cur_airport != start_iata:
+            reachable[cur_airport] = float(cur_cost)
+
+        for path in graph.get_neighbours(cur_airport):
+            if preferred_carrier_iata:
+                if not any(carrier.iata == preferred_carrier_iata for carrier in (path.airlines or [])):
+                    continue
+
+            neighbour = path.destination
+            new_cost = cur_cost + (float(path.price) * cabin_multiplier)
+
+            if new_cost <= budget and new_cost < dist.get(neighbour, float("inf")):
+                dist[neighbour] = new_cost
+                heapq.heappush(pq, (new_cost, neighbour))
+
+    return reachable
