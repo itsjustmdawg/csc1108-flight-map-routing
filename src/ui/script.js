@@ -283,6 +283,12 @@ function clearRoutesAndButtons() {
 	currentRoutes = [];
 	clearRouteVisualization();
 	updateRouteButtonsDisplay();
+
+	if (routeDetailsElement) {
+		routeDetailsElement.innerHTML = "<div class='route-empty'>No route selected.</div>";
+		routeDetailsElement.style.height = "";
+	}
+
     const routeOptionButtons = document.querySelectorAll(".route-option");
     routeOptionButtons.forEach((btn, index) => {
         btn.style.display = "none";
