@@ -297,11 +297,7 @@ function displayRouteOnMap(routeIndex) {
 		return;
 	}
 
-	if (renderedRoutes === currentRoutes) {
-		updateRouteHighlighting(routeIndex);
-		return;
-	}
-
+	// Always clear and redraw to focus only on the selected route
 	clearRouteVisualization();
 	renderedRoutes = currentRoutes;
 
@@ -335,9 +331,11 @@ function displayRouteOnMap(routeIndex) {
 
 	let globalStartTime = null;
 
-	// 2. Loop through ALL routes currently loaded in this filter to draw them together
+	// 2. Only draw the currently selected route
 	currentRoutes.forEach((route, idx) => {
-		const isSelected = (idx === selectedIndex);
+		if (idx !== selectedIndex) return;
+
+		const isSelected = true;
 
 		// Group paths by leg_index (for multi-city segments)
 		const legs = [];
@@ -414,9 +412,9 @@ function displayRouteOnMap(routeIndex) {
 				totalDistance += dist;
 			}
 
-			// Selected route is prominent, unselected variants are translucent/thinner
-			const routeOpacity = isSelected ? 0.8 : 0.2;
-			const routeWeight = isSelected ? 4 : 2;
+			// Selected route is prominent
+			const routeOpacity = 0.8;
+			const routeWeight = 4;
 
 			// Apply varying shades based on leg index rather than alternative route index
 			const routeColor = (route.trip_type === "multicity" || route.trip_type === "return")
@@ -473,9 +471,9 @@ function displayRouteOnMap(routeIndex) {
 				}
 			}
 
-			// Plot waypoint markers across all routes, make unselected variant markers translucent too
+			// Plot waypoint markers for the selected route
 			for (let i = skipOrigin ? 1 : 0; i < waypoints.length; i++) {
-				const marker = L.marker(waypoints[i], { opacity: isSelected ? 1.0 : 0.2 }).addTo(map);
+				const marker = L.marker(waypoints[i], { opacity: 1.0 }).addTo(map);
 				
 				let airportCode, markerLabel;
 				
@@ -570,43 +568,16 @@ function displayRouteOnMap(routeIndex) {
 	if (routeAnimations.length > 0) {
 		animationFrameId = requestAnimationFrame(animate);
 		
-		// Put the selected route on top of the translucent variants
-		const selectedAnim = routeAnimations.find(a => a.routeIdx === selectedIndex);
-		if (selectedAnim) {
-			selectedAnim.polyline.bringToFront();
-			map.fitBounds(L.latLngBounds(selectedAnim.waypoints), { padding: [40, 40] });
-		} else {
-			map.fitBounds(L.latLngBounds(routeAnimations[0].waypoints), { padding: [40, 40] });
-		}
-	}
-}
-
-function updateRouteHighlighting(selectedIndex) {
-	routeAnimations.forEach(anim => {
-		const isSelected = (anim.routeIdx === selectedIndex);
-		const routeOpacity = isSelected ? 0.8 : 0.2;
-		const routeWeight = isSelected ? 4 : 2;
-
-		anim.polyline.setStyle({
-			opacity: routeOpacity,
-			weight: routeWeight
-		});
-
-		if (isSelected) {
-			anim.polyline.bindPopup(`Selected Route ${anim.routeIdx + 1}`);
+		// Gather all waypoints across all legs for the selected route to fit bounds
+		const allWaypoints = [];
+		routeAnimations.forEach(anim => {
 			anim.polyline.bringToFront();
-		} else {
-			anim.polyline.unbindPopup();
-		}
-
-		anim.markers.forEach(marker => {
-			marker.setOpacity(isSelected ? 1.0 : 0.2);
+			allWaypoints.push(...anim.waypoints);
 		});
-	});
-
-	const selectedAnim = routeAnimations.find(a => a.routeIdx === selectedIndex);
-	if (selectedAnim) {
-		map.fitBounds(L.latLngBounds(selectedAnim.waypoints), { padding: [40, 40] });
+		
+		if (allWaypoints.length > 0) {
+			map.fitBounds(L.latLngBounds(allWaypoints), { padding: [40, 40] });
+		}
 	}
 }
 
