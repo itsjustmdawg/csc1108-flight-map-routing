@@ -78,12 +78,26 @@ class SkyPathApi:
             return price * 1.2
         return price
 
-    def get_routes(self, src_code, dest_code, selected_filter, max_routes=4, cabin_class="economy", trip_type="oneway", departure_date=None):
+    def get_routes(self, src_code, dest_code, selected_filter, max_routes=4, cabin_class="economy", trip_type="oneway", departure_date=None, return_date=None):
         if not src_code or not dest_code:
             return {"error": "Source and destination codes are required."}
 
         if src_code == dest_code:
             return {"error": "Source and destination cannot be the same."}
+
+        # Handle return trips dynamically as a 2-leg multicity trip
+        if trip_type == "return":
+            itinerary = [
+                {"origin": src_code, "dest": dest_code, "date": departure_date},
+                {"origin": dest_code, "dest": src_code, "date": return_date}
+            ]
+            result = self.get_multicity_routes(itinerary, selected_filter, max_routes, cabin_class)
+            
+            # Ensure UI still recognizes this as a 'return' trip for title display
+            if result.get("ok") and result.get("routes"):
+                for r in result["routes"]:
+                    r["trip_type"] = "return"
+            return result
 
         if src_code not in self.flight_graph.airports:
             return {"error": f"Source airport '{src_code}' not found."}
@@ -144,10 +158,6 @@ class SkyPathApi:
             route_price = self._apply_cabin_multiplier(route_price, cabin_class)
             if departure_date:
                 route_price = self._apply_weekend_multiplier(route_price, departure_date)
-            
-            # For return trips, apply multipliers again (double the price)
-            if trip_type == "return" and departure_date:
-                route_price *= 2
             
             serialised_routes.append(
                 {
