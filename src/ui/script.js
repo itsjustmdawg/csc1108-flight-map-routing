@@ -187,7 +187,7 @@ function updateMapViewport() {
 	}
 }
 
-function setAirportMarker(role, airport) {
+function setAirportMarker(role, airport, preventZoom = false) {
 	const markerRef = role === "origin" ? originMarker : destinationMarker;
 
 	if (markerRef) {
@@ -200,7 +200,7 @@ function setAirportMarker(role, airport) {
 		} else {
 			destinationMarker = null;
 		}
-		updateMapViewport();
+		if (!preventZoom) updateMapViewport();
 		return;
 	}
 
@@ -215,10 +215,14 @@ function setAirportMarker(role, airport) {
 		destinationMarker = marker;
 	}
 
-	updateMapViewport();
+	if (!preventZoom) updateMapViewport();
 }
 
 function updateMarkerForInput(inputElement) {
+	// Do not override global origin/destination markers when using multi-city inputs
+	if (inputElement.id && inputElement.id.startsWith("mc-")) {
+		return;
+	}
 	const airport = getAirportFromInput(inputElement);
 	const role = inputElement.id === "origin" ? "origin" : "destination";
 	setAirportMarker(role, airport);
@@ -305,21 +309,25 @@ function displayRouteOnMap(routeIndex) {
 	const uiDestCode = destinationInput.dataset.airportCode;
 
 	// 1. Determine styling for all lines based on the currently selected filter
-	let baseColor, dashArray, dashLength;
+	let baseColor, dashArray, dashLength, routePalette;
 	if (selectedFilter.includes("fast")) {
 		baseColor = "#16a34a";   // Green
+		routePalette = ["#16a34a", "#15803d", "#064e3b", "#4ade80", "#22c55e"]; // Green shades
 		dashArray = "15, 10";    // Dashed line
 		dashLength = 25;
 	} else if (selectedFilter.includes("cheap")) {
 		baseColor = "#9333ea";   // Purple
+		routePalette = ["#9333ea", "#7e22ce", "#4c1d95", "#c084fc", "#a855f7"]; // Purple shades
 		dashArray = "5, 5";      // Dotted line
 		dashLength = 10;
 	} else if (selectedFilter.includes("fewest")) {
 		baseColor = "#dc2626";   // Red
+		routePalette = ["#dc2626", "#991b1b", "#450a0a", "#f87171", "#ef4444"]; // Red/Maroon shades
 		dashArray = "15, 5";     // Alternate dashed line
 		dashLength = 20;
 	} else {
 		baseColor = "#0284c7";   // Blue
+		routePalette = ["#0284c7", "#0369a1", "#082f49", "#38bdf8", "#0ea5e9"]; // Blue shades
 		dashArray = "12, 8";     // Flowing dashed line
 		dashLength = 20;
 	}
@@ -329,137 +337,180 @@ function displayRouteOnMap(routeIndex) {
 	// 2. Loop through ALL routes currently loaded in this filter to draw them together
 	currentRoutes.forEach((route, idx) => {
 		const isSelected = (idx === selectedIndex);
-		const waypoints = [];
 
-		route.paths.forEach((path) => {
-			const sourceAirport = airportByCode.get(path.source);
-			const destAirport = airportByCode.get(path.destination);
-
-			if (sourceAirport && hasValidCoordinates(sourceAirport) && waypoints.length === 0) {
-				waypoints.push([sourceAirport.latitude, sourceAirport.longitude]);
-			}
-			if (destAirport && hasValidCoordinates(destAirport)) {
-				waypoints.push([destAirport.latitude, destAirport.longitude]);
-			}
+		// Group paths by leg_index (for multi-city segments)
+		const legs = [];
+		route.paths.forEach(path => {
+			const lIdx = path.leg_index || 0;
+			if (!legs[lIdx]) legs[lIdx] = [];
+			legs[lIdx].push(path);
 		});
 
-		if (waypoints.length < 2) {
-			return; // Skip invalid routes
-		}
+		legs.forEach((legPaths, legIdx) => {
+			if (!legPaths || legPaths.length === 0) return;
+			
+			const waypoints = [];
+			legPaths.forEach((path) => {
+				const sourceAirport = airportByCode.get(path.source);
+				const destAirport = airportByCode.get(path.destination);
 
-		// ============================================================================
-		// DIRECTION DETECTION & CORRECTION (FIX FOR SWAP BUG)
-		// ============================================================================
-		const firstPath = route.paths[0];
-		const lastPath = route.paths[route.paths.length - 1];
+				if (sourceAirport && hasValidCoordinates(sourceAirport) && waypoints.length === 0) {
+					waypoints.push([sourceAirport.latitude, sourceAirport.longitude]);
+				}
+				if (destAirport && hasValidCoordinates(destAirport)) {
+					waypoints.push([destAirport.latitude, destAirport.longitude]);
+				}
+			});
 
-		if (firstPath.source === uiDestCode && lastPath.destination === uiOriginCode) {
-			route.paths.reverse();
-			waypoints.reverse();
-		}
+			if (waypoints.length < 2) {
+				return; // Skip invalid routes
+			}
 
-		if (
-			(route.paths[0].source !== uiOriginCode || route.paths[route.paths.length - 1].destination !== uiDestCode) &&
-			waypoints[0][0] === airportByCode.get(uiOriginCode)?.latitude &&
-			waypoints[0][1] === airportByCode.get(uiOriginCode)?.longitude
-		) {
-			// Already consistent by waypoints, do nothing
-		} else if (
-			route.paths[0].source === uiOriginCode &&
-			route.paths[route.paths.length - 1].destination === uiDestCode
-		) {
-			// Route is fine as-is
-		} else {
-			const originLoc = airportByCode.get(uiOriginCode);
-			const destLoc = airportByCode.get(uiDestCode);
-			if (originLoc && destLoc && waypoints.length > 1) {
-				const currentOrigin = waypoints[0];
-				if (currentOrigin[0] === destLoc.latitude && currentOrigin[1] === destLoc.longitude) {
+			// ============================================================================
+			// DIRECTION DETECTION & CORRECTION (FIX FOR SWAP BUG)
+			// Only apply to standard routes, multi-city uses different inputs
+			// ============================================================================
+			if (route.trip_type !== "multicity") {
+				const firstPath = legPaths[0];
+				const lastPath = legPaths[legPaths.length - 1];
+
+				if (firstPath.source === uiDestCode && lastPath.destination === uiOriginCode) {
+					legPaths.reverse();
 					waypoints.reverse();
 				}
-			}
-		}
 
-		// 3. Calculate distances between waypoints for interpolation
-		let totalDistance = 0;
-		const segmentDistances = [];
-		for (let i = 0; i < waypoints.length - 1; i++) {
-			const p1 = L.latLng(waypoints[i]);
-			const p2 = L.latLng(waypoints[i + 1]);
-			const dist = p1.distanceTo(p2);
-			segmentDistances.push(dist);
-			totalDistance += dist;
-		}
-
-		// Selected route is prominent, unselected variants are translucent/thinner
-		const routeOpacity = isSelected ? 0.8 : 0.2;
-		const routeWeight = isSelected ? 4 : 2;
-
-		const polyline = L.polyline([], { 
-			color: baseColor,
-			weight: routeWeight,
-			dashArray: dashArray,
-			lineCap: 'round',
-			lineJoin: 'round',
-			opacity: routeOpacity
-		}).addTo(map);
-		if (isSelected) {
-			polyline.bindPopup(`Selected Route ${idx + 1}`);
-		}
-		routePolylines.push(polyline);
-
-		function getPointAtDistance(targetDist) {
-			if (targetDist <= 0) return waypoints[0];
-			if (targetDist >= totalDistance) return waypoints[waypoints.length - 1];
-			
-			let accumulatedDist = 0;
-			for (let i = 0; i < waypoints.length - 1; i++) {
-				const segDist = segmentDistances[i];
-				if (accumulatedDist + segDist >= targetDist) {
-					if (segDist === 0) return waypoints[i + 1];
-					const segProgress = (targetDist - accumulatedDist) / segDist;
-					const p1 = waypoints[i];
-					const p2 = waypoints[i + 1];
-					return [
-						p1[0] + (p2[0] - p1[0]) * segProgress,
-						p1[1] + (p2[1] - p1[1]) * segProgress
-					];
+				if (
+					(legPaths[0].source !== uiOriginCode || legPaths[legPaths.length - 1].destination !== uiDestCode) &&
+					waypoints[0][0] === airportByCode.get(uiOriginCode)?.latitude &&
+					waypoints[0][1] === airportByCode.get(uiOriginCode)?.longitude
+				) {
+					// Already consistent by waypoints, do nothing
+				} else if (
+					legPaths[0].source === uiOriginCode &&
+					legPaths[legPaths.length - 1].destination === uiDestCode
+				) {
+					// Route is fine as-is
+				} else {
+					const originLoc = airportByCode.get(uiOriginCode);
+					const destLoc = airportByCode.get(uiDestCode);
+					if (originLoc && destLoc && waypoints.length > 1) {
+						const currentOrigin = waypoints[0];
+						if (currentOrigin[0] === destLoc.latitude && currentOrigin[1] === destLoc.longitude) {
+							waypoints.reverse();
+						}
+					}
 				}
-				accumulatedDist += segDist;
 			}
-			return waypoints[waypoints.length - 1];
-		}
 
-		const routeMarkers = [];
+			// 3. Calculate distances between waypoints for interpolation
+			let totalDistance = 0;
+			const segmentDistances = [];
+			for (let i = 0; i < waypoints.length - 1; i++) {
+				const p1 = L.latLng(waypoints[i]);
+				const p2 = L.latLng(waypoints[i + 1]);
+				const dist = p1.distanceTo(p2);
+				segmentDistances.push(dist);
+				totalDistance += dist;
+			}
 
-		// Plot waypoint markers across all routes, make unselected variant markers translucent too
-		for (let i = 1; i < waypoints.length; i++) {
-			const marker = L.marker(waypoints[i], { opacity: isSelected ? 1.0 : 0.2 }).addTo(map);
-			const airportCode = i === waypoints.length - 1
-					? route.paths[route.paths.length - 1].destination
-					: route.paths[i - 1].destination;
+			// Selected route is prominent, unselected variants are translucent/thinner
+			const routeOpacity = isSelected ? 0.8 : 0.2;
+			const routeWeight = isSelected ? 4 : 2;
 
-			const airport = airportByCode.get(airportCode);
-			const airportName = airport?.name || "Unknown Airport";
-			const markerLabel = i === waypoints.length - 1
-					? `<b>Destination</b><br>${airportCode} - ${airportName}`
-					: `<b>Stop</b><br>${airportCode} - ${airportName}`;
+			// Apply varying shades based on leg index rather than alternative route index
+			const routeColor = (route.trip_type === "multicity")
+				? routePalette[legIdx % routePalette.length]
+				: baseColor;
 
-			marker.bindPopup(markerLabel);
-			waypointMarkers.push(marker);
-			routeMarkers.push(marker);
-		}
+			const polyline = L.polyline([], { 
+				color: routeColor,
+				weight: routeWeight,
+				dashArray: dashArray,
+				lineCap: 'round',
+				lineJoin: 'round',
+				opacity: routeOpacity
+			}).addTo(map);
+			if (isSelected) {
+				polyline.bindPopup(`Selected Route ${idx + 1}${route.trip_type === "multicity" ? " (Leg " + (legIdx + 1) + ")" : ""}`);
+			}
+			routePolylines.push(polyline);
 
-		routeAnimations.push({
-			routeIdx: idx,
-			polyline,
-			waypoints,
-			totalDistance,
-			segmentDistances,
-			getPointAtDistance,
-			hasFullyDrawn: false,
-			dashLength,
-			markers: routeMarkers
+			function getPointAtDistance(targetDist) {
+				if (targetDist <= 0) return waypoints[0];
+				if (targetDist >= totalDistance) return waypoints[waypoints.length - 1];
+				
+				let accumulatedDist = 0;
+				for (let i = 0; i < waypoints.length - 1; i++) {
+					const segDist = segmentDistances[i];
+					if (accumulatedDist + segDist >= targetDist) {
+						if (segDist === 0) return waypoints[i + 1];
+						const segProgress = (targetDist - accumulatedDist) / segDist;
+						const p1 = waypoints[i];
+						const p2 = waypoints[i + 1];
+						return [
+							p1[0] + (p2[0] - p1[0]) * segProgress,
+							p1[1] + (p2[1] - p1[1]) * segProgress
+						];
+					}
+					accumulatedDist += segDist;
+				}
+				return waypoints[waypoints.length - 1];
+			}
+
+			const routeMarkers = [];
+
+			// Standard routes rely on the UI origin marker, but multi-city needs its own
+			let skipOrigin = false;
+			if (route.trip_type !== "multicity") {
+				skipOrigin = true;
+			} else if (legIdx > 0) {
+				const prevLeg = legs[legIdx - 1];
+				if (prevLeg && prevLeg.length > 0) {
+					const prevDest = prevLeg[prevLeg.length - 1].destination;
+					if (prevDest === legPaths[0].source) {
+						skipOrigin = true; // Skip if it perfectly connects to previous leg's destination
+					}
+				}
+			}
+
+			// Plot waypoint markers across all routes, make unselected variant markers translucent too
+			for (let i = skipOrigin ? 1 : 0; i < waypoints.length; i++) {
+				const marker = L.marker(waypoints[i], { opacity: isSelected ? 1.0 : 0.2 }).addTo(map);
+				
+				let airportCode, markerLabel;
+				
+				if (i === 0) {
+					airportCode = legPaths[0].source;
+					const airport = airportByCode.get(airportCode);
+					const airportName = airport?.name || "Unknown Airport";
+					markerLabel = `<b>Origin</b><br>${airportCode} - ${airportName}`;
+				} else {
+					airportCode = i === waypoints.length - 1
+							? legPaths[legPaths.length - 1].destination
+							: legPaths[i - 1].destination;
+					const airport = airportByCode.get(airportCode);
+					const airportName = airport?.name || "Unknown Airport";
+					markerLabel = i === waypoints.length - 1
+							? `<b>Destination</b><br>${airportCode} - ${airportName}`
+							: `<b>Stop</b><br>${airportCode} - ${airportName}`;
+				}
+
+				marker.bindPopup(markerLabel);
+				waypointMarkers.push(marker);
+				routeMarkers.push(marker);
+			}
+
+			routeAnimations.push({
+				routeIdx: idx,
+				polyline,
+				waypoints,
+				totalDistance,
+				segmentDistances,
+				getPointAtDistance,
+				hasFullyDrawn: false,
+				dashLength,
+				markers: routeMarkers
+			});
 		});
 	});
 
@@ -763,6 +814,12 @@ const departureDateInput = document.getElementById("departure-date");
 const returnDateInput = document.getElementById("return-date");
 const returnDateWrapper = document.getElementById("return-date-wrapper");
 const cabinClassSelect = document.getElementById("cabin-class");
+
+// Set minimum date for standard date inputs to today
+const now = new Date();
+const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+if (departureDateInput) departureDateInput.min = todayStr;
+if (returnDateInput) returnDateInput.min = todayStr;
 
 
 let airportsCache = [];
@@ -1143,21 +1200,339 @@ wireSearchableDropdown(
 	destinationContainer,
 );
 
+// Add multi-city option to the trip type dropdown if not already present
+if (!Array.from(tripTypeSelect.options).some(opt => opt.value === "multicity")) {
+	const mcOption = document.createElement("option");
+	mcOption.value = "multicity";
+	mcOption.textContent = "Multi-City";
+	tripTypeSelect.appendChild(mcOption);
+}
+
+let multiCityFlights = [];
+const MAX_MULTICITY_FLIGHTS = 5;
+let mcWrapper = null;
+let previousTripType = tripTypeSelect.value || "oneway";
+
 // Trip type dropdown handler
 tripTypeSelect.addEventListener("change", (e) => {
 	const tripType = e.target.value;
+	
+	// Identify standard input wrappers to toggle their visibility
+	const originWrapper = originContainer.parentElement;
+	const destWrapper = destinationContainer.parentElement;
+	const depDateWrapper = departureDateInput.parentElement;
+	const swapWrapper = document.getElementById("swap");
+
+	// If switching between multicity and standard modes, clear everything to avoid ghost states
+	if ((previousTripType === "multicity" && tripType !== "multicity") || 
+		(previousTripType !== "multicity" && tripType === "multicity")) {
+		
+		clearRoutes();
+		setAirportMarker("origin", null, true);
+		setAirportMarker("destination", null, true);
+		map.setView([20, 0], 2);
+		
+		// Clear standard inputs
+		originInput.value = "";
+		originInput.dataset.airportCode = "";
+		destinationInput.value = "";
+		destinationInput.dataset.airportCode = "";
+		
+		const originClearBtn = originContainer.querySelector(".dropdown-clear");
+		const destClearBtn = destinationContainer.querySelector(".dropdown-clear");
+		if (originClearBtn) originClearBtn.hidden = true;
+		if (destClearBtn) destClearBtn.hidden = true;
+		
+		// Reset multi-city fields so they don't restore old inputs when switching back
+		if (mcWrapper) {
+			mcWrapper.remove();
+			mcWrapper = null;
+			multiCityFlights = [];
+		}
+	}
+	previousTripType = tripType;
+
 	if (tripType === "return") {
 		returnDateWrapper.style.display = "";
+		toggleStandardFields(true);
+		if (mcWrapper) mcWrapper.style.display = "none";
+		updateMarkerForInput(originInput);
+		updateMarkerForInput(destinationInput);
+	} else if (tripType === "multicity") {
+		returnDateWrapper.style.display = "none";
+		toggleStandardFields(false);
+		
+		if (!mcWrapper) {
+			mcWrapper = createMultiCityUI();
+		}
+		mcWrapper.style.display = "block";
 	} else {
 		returnDateWrapper.style.display = "none";
+		toggleStandardFields(true);
+		if (mcWrapper) mcWrapper.style.display = "none";
+		updateMarkerForInput(originInput);
+		updateMarkerForInput(destinationInput);
+	}
+
+	function toggleStandardFields(show) {
+		const display = show ? "" : "none";
+		if (originWrapper) originWrapper.style.display = display;
+		if (destWrapper) destWrapper.style.display = display;
+		if (depDateWrapper) depDateWrapper.style.display = display;
+		if (swapWrapper) swapWrapper.style.display = display;
 	}
 });
 
+function updateMultiCityDateConstraints() {
+	let currentMinDate = todayStr;
+	multiCityFlights.forEach((flight) => {
+		flight.date.min = currentMinDate;
+		if (flight.date.value && flight.date.value < currentMinDate) {
+			flight.date.value = ""; // Auto-clear if the new min-date constraint invalidates the current selection
+		}
+		if (flight.date.value) {
+			currentMinDate = flight.date.value;
+		}
+	});
+}
+
+function createMultiCityUI() {
+	const wrapper = document.createElement("div");
+	wrapper.id = "multicity-wrapper";
+	
+	const flightsContainer = document.createElement("div");
+	flightsContainer.id = "multicity-flights-container";
+	wrapper.appendChild(flightsContainer);
+	
+	// Add first two flight pairs by default
+	addMultiCityFlight(flightsContainer, 1);
+	addMultiCityFlight(flightsContainer, 2);
+	
+	// Checkbox option to add more flights
+	const addFlightWrapper = document.createElement("div");
+	addFlightWrapper.className = "field-wrapper multicity-add-wrapper";
+	
+	const addFlightCheckbox = document.createElement("input");
+	addFlightCheckbox.type = "checkbox";
+	addFlightCheckbox.id = "add-flight-checkbox";
+	
+	const addFlightLabel = document.createElement("label");
+	addFlightLabel.htmlFor = "add-flight-checkbox";
+	addFlightLabel.textContent = " Add another flight (Max 5)";
+	
+	addFlightCheckbox.addEventListener("change", (e) => {
+		if (e.target.checked) {
+			if (multiCityFlights.length < MAX_MULTICITY_FLIGHTS) {
+				addMultiCityFlight(flightsContainer, multiCityFlights.length + 1);
+			}
+			if (multiCityFlights.length >= MAX_MULTICITY_FLIGHTS) {
+				addFlightWrapper.style.display = "none";
+			}
+			// Uncheck immediately so it acts as a reusable trigger
+			setTimeout(() => { e.target.checked = false; }, 200);
+		}
+	});
+	
+	addFlightWrapper.appendChild(addFlightCheckbox);
+	addFlightWrapper.appendChild(addFlightLabel);
+	wrapper.appendChild(addFlightWrapper);
+	
+	// Insert wrapper just before the standard origin field so it sits under the header
+	const originWrapper = originContainer.parentElement;
+	originWrapper.parentElement.insertBefore(wrapper, originWrapper);
+	
+	return wrapper;
+}
+
+function addMultiCityFlight(container, index) {
+	const flightDiv = document.createElement("div");
+	flightDiv.className = "multicity-flight-row";
+	flightDiv.dataset.flightIndex = index;
+
+	const removeButtonHTML = index > 2
+		? `<button type="button" class="remove-flight-btn" aria-label="Remove Flight ${index}">✖</button>`
+		: '';
+
+	flightDiv.innerHTML = `
+		<div class="section-label" style="margin-top: 15px; color: #0ea5e9;">
+			<span>FLIGHT ${index}</span>
+			${removeButtonHTML}
+		</div>
+		<div class="field-wrapper">
+			<label>Origin</label>
+			<div class="field-input-box" id="mc-origin-container-${index}">
+				<input type="text" id="mc-origin-${index}" class="airport-search-input" placeholder="City or Airport" autocomplete="off" />
+				<span class="dropdown-clear" hidden>✖</span>
+				<div id="mc-origin-options-${index}" class="airport-options" hidden></div>
+			</div>
+		</div>
+		<div style="text-align: center; margin: -5px 0 5px 0;">
+			<button type="button" id="mc-swap-${index}" class="action-button action-button-compact" style="width: auto; padding: 4px 12px; height: auto; margin: 0 auto; border-radius: 4px; display: inline-block;">
+				<span class="icon">⇅</span> SWAP
+			</button>
+		</div>
+		<div class="field-wrapper">
+			<label>Destination</label>
+			<div class="field-input-box" id="mc-dest-container-${index}">
+				<input type="text" id="mc-dest-${index}" class="airport-search-input" placeholder="City or Airport" autocomplete="off" />
+				<span class="dropdown-clear" hidden>✖</span>
+				<div id="mc-dest-options-${index}" class="airport-options" hidden></div>
+			</div>
+		</div>
+		<div class="field-wrapper">
+			<label>Departure Date</label>
+			<input type="date" id="mc-date-${index}" class="form-input" min="${todayStr}" />
+		</div>
+	`;
+	container.appendChild(flightDiv);
+	
+	// Add event listener for the remove button if it exists
+	if (index > 2) {
+		const removeBtn = flightDiv.querySelector('.remove-flight-btn');
+		removeBtn.addEventListener('click', () => removeMultiCityFlight(index));
+	}
+	
+	const originInput = flightDiv.querySelector(`#mc-origin-${index}`);
+	const originOptions = flightDiv.querySelector(`#mc-origin-options-${index}`);
+	const originContainerNode = flightDiv.querySelector(`#mc-origin-container-${index}`);
+	
+	const destInput = flightDiv.querySelector(`#mc-dest-${index}`);
+	const destOptions = flightDiv.querySelector(`#mc-dest-options-${index}`);
+	const destContainerNode = flightDiv.querySelector(`#mc-dest-container-${index}`);
+	
+	const swapBtn = flightDiv.querySelector(`#mc-swap-${index}`);
+	swapBtn.addEventListener("click", () => {
+		const tempVal = originInput.value;
+		const tempCode = originInput.dataset.airportCode || "";
+		
+		originInput.value = destInput.value;
+		originInput.dataset.airportCode = destInput.dataset.airportCode || "";
+		
+		destInput.value = tempVal;
+		destInput.dataset.airportCode = tempCode;
+		
+		updateClearButtonVisibility(originInput, originContainerNode.querySelector(".dropdown-clear"));
+		updateClearButtonVisibility(destInput, destContainerNode.querySelector(".dropdown-clear"));
+	});
+
+	// Hook the new inputs up to your awesome existing dropdown logic
+	wireSearchableDropdown(originInput, originOptions, originContainerNode);
+	wireSearchableDropdown(destInput, destOptions, destContainerNode);
+	
+	const dateInput = flightDiv.querySelector(`#mc-date-${index}`);
+	dateInput.addEventListener("change", updateMultiCityDateConstraints);
+	
+	multiCityFlights.push({
+		origin: originInput,
+		dest: destInput,
+		date: dateInput
+	});
+	
+	updateMultiCityDateConstraints();
+}
+
+function removeMultiCityFlight(indexToRemove) {
+	const container = document.getElementById("multicity-flights-container");
+	const flightDivToRemove = container.querySelector(`.multicity-flight-row[data-flight-index="${indexToRemove}"]`);
+	if (!flightDivToRemove) return;
+
+	// 1. Remove the DOM element
+	container.removeChild(flightDivToRemove);
+
+	// 2. Remove the corresponding flight object from our state array
+	multiCityFlights.splice(indexToRemove - 1, 1);
+
+	// 3. Show the "Add Flight" button again as we are no longer at the max limit
+	const addFlightWrapper = document.getElementById('multicity-wrapper').querySelector('.multicity-add-wrapper');
+	if (addFlightWrapper) {
+		addFlightWrapper.style.display = "flex";
+	}
+
+	// 4. Renumber the labels, IDs, and listeners of all subsequent flight rows
+	const remainingRows = container.querySelectorAll('.multicity-flight-row');
+	remainingRows.forEach((row, i) => {
+		const newIndex = i + 1;
+		const oldIndex = parseInt(row.dataset.flightIndex, 10);
+
+		// Only update rows that came after the one we removed
+		if (oldIndex > indexToRemove) {
+			row.dataset.flightIndex = newIndex;
+
+			// Update "FLIGHT X" label
+			row.querySelector('.section-label span').textContent = `FLIGHT ${newIndex}`;
+
+			// Update all element IDs within this row to reflect the new index
+			row.querySelectorAll('[id]').forEach(el => {
+				el.id = el.id.replace(/-\d+$/, `-${newIndex}`);
+			});
+
+			// Update the remove button's functionality
+			const removeBtn = row.querySelector('.remove-flight-btn');
+			if (removeBtn) {
+				removeBtn.setAttribute('aria-label', `Remove Flight ${newIndex}`);
+				
+				// Clone and replace the button to remove the old event listener
+				// and add a new one with the correct new index
+				const newBtn = removeBtn.cloneNode(true);
+				removeBtn.parentNode.replaceChild(newBtn, removeBtn);
+				newBtn.addEventListener('click', () => removeMultiCityFlight(newIndex));
+			}
+		}
+	});
+	
+	updateMultiCityDateConstraints();
+}
+
 findRoutesButton.addEventListener("click", async () => {
-	const originAirport = originInput.dataset.airportCode || "";
-	const destinationAirport = destinationInput.dataset.airportCode || "";
 	const tripType = tripTypeSelect.value || "oneway";
 	const cabinClass = cabinClassSelect.value || "economy";
+
+	// ---- Multi-city validation and payload ----
+	if (tripType === "multicity") {
+		const mcData = multiCityFlights.map(f => ({
+			origin: f.origin.dataset.airportCode || "",
+			dest: f.dest.dataset.airportCode || "",
+			date: f.date.value || ""
+		}));
+		
+		for (let i = 0; i < mcData.length; i++) {
+			if (!mcData[i].origin || !mcData[i].dest || !mcData[i].date) {
+				alert(`Please complete all fields (Origin, Destination, Date) for Flight ${i + 1}.`);
+				return;
+			}
+		}
+
+		try {
+			const result = await window.pywebview.api.get_multicity_routes(
+				mcData,
+				selectedFilter,
+				10,
+				cabinClass
+			);
+			
+			if (!result || !result.ok) {
+				console.error("Failed to retrieve routes:", result?.error);
+				alert("Failed to retrieve routes. Please try again.");
+				return;
+			}
+
+			currentRoutes = result.routes;
+			updateRouteButtonsDisplay();
+
+			if (currentRoutes.length > 0) {
+				selectRoute(0);
+			} else {
+				console.log("No routes found for the selected airports.");
+			}
+		} catch (error) {
+			console.error("Error while finding routes:", error);
+		}
+		return;
+	}
+
+	// ---- Standard one-way / return validation ----
+	const originAirport = originInput.dataset.airportCode || "";
+	const destinationAirport = destinationInput.dataset.airportCode || "";
 	const departureDate = departureDateInput.value || null;
 
 	if (!originAirport || !destinationAirport) {
