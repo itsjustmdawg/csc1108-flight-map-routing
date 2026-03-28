@@ -262,7 +262,8 @@ function clearRoutes() {
 	currentRoutes = [];
 	clearRouteVisualization();
 	if (routeDetailsElement) {
-		routeDetailsElement.textContent = "No route selected.";
+		routeDetailsElement.innerHTML = "<div class='route-empty'>No route selected.</div>";
+		routeDetailsElement.style.height = "";
 	}
 }
 
@@ -370,7 +371,7 @@ function displayRouteOnMap(routeIndex) {
 			// DIRECTION DETECTION & CORRECTION (FIX FOR SWAP BUG)
 			// Only apply to standard routes, multi-city uses different inputs
 			// ============================================================================
-			if (route.trip_type !== "multicity") {
+			if (route.trip_type !== "multicity" && route.trip_type !== "return") {
 				const firstPath = legPaths[0];
 				const lastPath = legPaths[legPaths.length - 1];
 
@@ -418,7 +419,7 @@ function displayRouteOnMap(routeIndex) {
 			const routeWeight = isSelected ? 4 : 2;
 
 			// Apply varying shades based on leg index rather than alternative route index
-			const routeColor = (route.trip_type === "multicity")
+			const routeColor = (route.trip_type === "multicity" || route.trip_type === "return")
 				? routePalette[legIdx % routePalette.length]
 				: baseColor;
 
@@ -461,9 +462,8 @@ function displayRouteOnMap(routeIndex) {
 
 			// Standard routes rely on the UI origin marker, but multi-city needs its own
 			let skipOrigin = false;
-			if (route.trip_type !== "multicity") {
+			if (route.trip_type !== "multicity" && route.trip_type !== "return") {
 				skipOrigin = true;
-			} else if (legIdx > 0) {
 				const prevLeg = legs[legIdx - 1];
 				if (prevLeg && prevLeg.length > 0) {
 					const prevDest = prevLeg[prevLeg.length - 1].destination;
@@ -618,13 +618,24 @@ function formatDuration(mins) {
 	return `${h}h ${m}m`;
 }
 
-function getRouteText(route, index) {
-	if (!route || !route.paths || route.paths.length === 0) {
-		return "No route data available.";
+function renderRouteDetails(routeIndex) {
+	if (!routeDetailsElement) {
+		return;
 	}
 
-	const origin = route.paths[0]?.source || "N/A";
-	const destination = route.paths[route.paths.length - 1]?.destination || "N/A";
+	if (!currentRoutes || currentRoutes.length === 0) {
+		routeDetailsElement.innerHTML = "<div class='route-empty'>No routes found. Please select origin/destination and click Find Routes.</div>";
+		routeDetailsElement.style.height = "";
+		return;
+	}
+
+	if (routeIndex < 0 || routeIndex >= currentRoutes.length) {
+		routeDetailsElement.innerHTML = "<div class='route-empty'>Selected route index is invalid.</div>";
+		routeDetailsElement.style.height = "";
+		return;
+	}
+
+	const route = currentRoutes[routeIndex];
 	const totalStops = Math.max(0, route.paths.length - 1);
 	const cabinClass = route.cabin_class || "Economy";
 	const cabinDisplay = cabinClass === "premium_economy" ? "Premium Economy" : 
@@ -633,42 +644,135 @@ function getRouteText(route, index) {
 	const tripType = route.trip_type === "return" ? "Round-Trip" : 
 	                 route.trip_type === "multicity" ? "Multi-City" : "One-Way";
 
-	let lines = [];
-	lines.push(`Route ${index + 1}: ${origin} → ${destination}`);
-	lines.push(`Type: ${tripType} | Class: ${cabinDisplay}`);
-	lines.push(`Total: ${Math.round(route.total_distance)} km · ${formatDuration(route.total_time)} · $${route.price.toFixed(2)}`);
-	lines.push(`Stops: ${totalStops}`);
-	lines.push("");
+	let html = `<div class="structured-itinerary">`;
+	
+	html += `
+	<div class="resize-handle-bar">
+		<div class="resize-grabber left"></div>
+		<div class="resize-grabber right"></div>
+	</div>`;
+	
+	html += `<div class="itinerary-body">`;
+	html += `<div class="itinerary-main">`;
+	html += `<div class="itinerary-header">Route ${routeIndex + 1} (${tripType})</div>`;
 
 	route.paths.forEach((path, i) => {
-		const airlines = (path.airlines || [])
-			.map((c) => c.name || c.iata || "Unknown")
-			.join(", ") || "Unknown carrier";
-		const segmentDuration = formatDuration(path.duration_min || 0);
-		const segmentPrice = path.price ? `$${path.price.toFixed(2)}` : "$0.00";
-		lines.push(`  ${i + 1}. ${path.source} → ${path.destination} | ${path.distance_km} km | ${segmentDuration} | ${segmentPrice} | ${airlines}`);
+		const airlines = (path.airlines || []).map(c => c.name || c.iata || "Unknown").join(", ") || "Unknown carrier";
+		const duration = formatDuration(path.duration_min || 0);
+		
+		const hasNextSameLeg = (i < route.paths.length - 1) && (route.paths[i + 1].leg_index === path.leg_index);
+
+		if (i === 0 || route.paths[i].leg_index !== route.paths[i - 1].leg_index) {
+			if (route.trip_type === "return" || route.trip_type === "multicity") {
+				const legIdx = path.leg_index || 0;
+				const legLabel = route.trip_type === "return" 
+					? (legIdx === 0 ? "Outbound Flight" : "Return Flight") 
+					: `Flight ${legIdx + 1}`;
+				
+				const extraStyle = i > 0 ? ' style="padding-top: 15px; border-top: 1px dashed #cbd5e1;"' : '';
+				html += `<div class="leg-divider"${extraStyle}>${legLabel}</div>`;
+			}
+		}
+
+		html += `
+		<div class="flight-strip">
+			<div class="strip-side left">
+				<span class="strip-code">${path.source}</span>
+			</div>
+			<div class="strip-middle">
+				<span class="strip-airline">${airlines}</span>
+				<div class="strip-line"><span class="plane-icon">✈</span></div>
+				<span class="strip-duration">${duration}</span>
+			</div>
+			<div class="strip-side right">
+				<span class="strip-code">${path.destination}</span>
+			</div>
+		</div>`;
+
+		if (hasNextSameLeg) {
+			html += `
+			<div class="layover-section">
+				Layover in ${path.destination}
+			</div>`;
+		}
 	});
+	html += `</div>`;
 
-	return lines.join("\n");
+	const stopsText = totalStops === 0 ? "Non-stop" : `${totalStops} Stop${totalStops > 1 ? 's' : ''}`;
+	const co2Est = Math.round(route.total_distance * 0.115); // Rough CO2 estimate based on km
+
+	html += `
+	<div class="itinerary-sidebar">
+		<div class="sidebar-item highlight">
+			<span class="summary-label">Total Price</span>
+			<span class="sidebar-value price">$${route.price.toFixed(2)}</span>
+		</div>
+		<div class="sidebar-item">
+			<span class="sidebar-label">Flight Class</span>
+			<span class="sidebar-value class-badge">${cabinDisplay}</span>
+		</div>
+		<div class="sidebar-item">
+			<span class="sidebar-label">Est. CO₂</span>
+			<span class="sidebar-value">${co2Est.toLocaleString()} kg</span>
+		</div>
+		<div class="sidebar-separator"></div>
+		<div class="sidebar-item">
+			<span class="sidebar-label">Total Distance</span>
+			<span class="sidebar-value">${Math.round(route.total_distance).toLocaleString()} km</span>
+		</div>
+		<div class="sidebar-item">
+			<span class="sidebar-label">Total Time</span>
+			<span class="sidebar-value">${formatDuration(route.total_time)}</span>
+		</div>
+		<div class="sidebar-item">
+			<span class="sidebar-label">Stops</span>
+			<span class="sidebar-value">${stopsText}</span>
+		</div>
+	</div>`;
+
+	html += `</div></div>`;
+	routeDetailsElement.innerHTML = html;
+
+	const resizeBar = routeDetailsElement.querySelector(".resize-handle-bar");
+	if (resizeBar) {
+		resizeBar.addEventListener("mousedown", (e) => {
+			isDraggingDetails = true;
+			dragStartY = e.clientY;
+			dragStartHeight = routeDetailsElement.offsetHeight;
+			document.body.style.cursor = "ns-resize";
+			e.preventDefault();
+		});
+	}
 }
 
-function renderRouteDetails(routeIndex) {
-	if (!routeDetailsElement) {
-		return;
-	}
+// ===============================================
+// Resize Drag Logic for Route Details
+// ===============================================
+let isDraggingDetails = false;
+let dragStartY = 0;
+let dragStartHeight = 0;
 
-	if (!currentRoutes || currentRoutes.length === 0) {
-		routeDetailsElement.textContent = "No routes found. Please select origin/destination and click Find Routes.";
-		return;
+document.addEventListener("mousemove", (e) => {
+	if (!isDraggingDetails) return;
+	const deltaY = dragStartY - e.clientY;
+	const newHeight = dragStartHeight + deltaY;
+	const maxHeight = window.innerHeight * 0.5;
+	
+	if (newHeight >= 110 && newHeight <= maxHeight) {
+		routeDetailsElement.style.height = `${newHeight}px`;
+	} else if (newHeight > maxHeight) {
+		routeDetailsElement.style.height = `${maxHeight}px`;
+	} else {
+		routeDetailsElement.style.height = "110px";
 	}
+});
 
-	if (routeIndex < 0 || routeIndex >= currentRoutes.length) {
-		routeDetailsElement.textContent = "Selected route index is invalid.";
-		return;
+document.addEventListener("mouseup", () => {
+	if (isDraggingDetails) {
+		isDraggingDetails = false;
+		document.body.style.cursor = "";
 	}
-
-	routeDetailsElement.textContent = getRouteText(currentRoutes[routeIndex], routeIndex);
-}
+});
 
 /// ===============================================
 // Pagination state
@@ -1534,6 +1638,7 @@ findRoutesButton.addEventListener("click", async () => {
 	const originAirport = originInput.dataset.airportCode || "";
 	const destinationAirport = destinationInput.dataset.airportCode || "";
 	const departureDate = departureDateInput.value || null;
+	const returnDate = returnDateInput.value || null;
 
 	if (!originAirport || !destinationAirport) {
 		alert("Please select both origin and destination airports.");
@@ -1545,12 +1650,11 @@ findRoutesButton.addEventListener("click", async () => {
 		return;
 	}
 
-	if (tripType === "return" && !returnDateInput.value) {
+	if (tripType === "return" && !returnDate) {
 		alert("Please select a return date for return trips.");
 		return;
 	}
-
-	if (
+if (
 		!(
 			window.pywebview &&
 			window.pywebview.api &&
@@ -1570,7 +1674,8 @@ findRoutesButton.addEventListener("click", async () => {
 			10,
 			cabinClass,
 			tripType,
-			departureDate
+			departureDate,
+			returnDate
 		);
 		if (!result || !result.ok) {
 			console.error("Failed to retrieve routes:", result?.error);
