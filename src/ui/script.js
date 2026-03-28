@@ -927,6 +927,24 @@ const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, 
 if (departureDateInput) departureDateInput.min = todayStr;
 if (returnDateInput) returnDateInput.min = todayStr;
 
+// Ensure return date cannot be earlier than departure date
+if (departureDateInput && returnDateInput) {
+	departureDateInput.addEventListener("change", (e) => {
+		const depValue = e.target.value;
+		if (depValue) {
+			returnDateInput.min = depValue;
+			// If the user pushes the departure date past the current return date, bump return date +1 day
+			if (returnDateInput.value && returnDateInput.value < depValue) {
+				const parts = depValue.split('-');
+				const depDate = new Date(parts[0], parts[1] - 1, parts[2]); // local date parsing avoids UTC shift
+				depDate.setDate(depDate.getDate() + 1);
+				returnDateInput.value = `${depDate.getFullYear()}-${String(depDate.getMonth() + 1).padStart(2, '0')}-${String(depDate.getDate()).padStart(2, '0')}`;
+			}
+		} else {
+			returnDateInput.min = todayStr;
+		}
+	});
+}
 
 let airportsCache = [];
 let popularAirports = [];
@@ -1654,6 +1672,11 @@ findRoutesButton.addEventListener("click", async () => {
 
 	if (tripType === "return" && !returnDate) {
 		alert("Please select a return date for return trips.");
+		return;
+	}
+
+	if (tripType === "return" && returnDate < departureDate) {
+		alert("Return date cannot be earlier than the departure date.");
 		return;
 	}
 if (
