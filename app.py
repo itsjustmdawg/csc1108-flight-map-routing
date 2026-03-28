@@ -1,6 +1,7 @@
 import json
 import webview
 import os
+import itertools
 from datetime import datetime
 import src.data_loader
 import src.algorithms
@@ -77,12 +78,26 @@ class SkyPathApi:
             return price * 1.2
         return price
 
-    def get_routes(self, src_code, dest_code, selected_filter, max_routes=4, cabin_class="economy", trip_type="oneway", departure_date=None):
+    def get_routes(self, src_code, dest_code, selected_filter, max_routes=4, cabin_class="economy", trip_type="oneway", departure_date=None, return_date=None):
         if not src_code or not dest_code:
             return {"error": "Source and destination codes are required."}
 
         if src_code == dest_code:
             return {"error": "Source and destination cannot be the same."}
+
+        # Handle return trips dynamically as a 2-leg multicity trip
+        if trip_type == "return":
+            itinerary = [
+                {"origin": src_code, "dest": dest_code, "date": departure_date},
+                {"origin": dest_code, "dest": src_code, "date": return_date}
+            ]
+            result = self.get_multicity_routes(itinerary, selected_filter, max_routes, cabin_class)
+            
+            # Ensure UI still recognizes this as a 'return' trip for title display
+            if result.get("ok") and result.get("routes"):
+                for r in result["routes"]:
+                    r["trip_type"] = "return"
+            return result
 
         if src_code not in self.flight_graph.airports:
             return {"error": f"Source airport '{src_code}' not found."}
@@ -96,7 +111,7 @@ class SkyPathApi:
         routes = None
 
         # a* with distance heuristic
-        if selected_filter == "shortest":
+        if "shortest" in selected_filter:
             routes = src.algorithms.find_routes_astar(
                 self.flight_graph,
                 start_airport,
@@ -105,25 +120,25 @@ class SkyPathApi:
             )
 
         # bellman ford with price as weight
-        if selected_filter == "cheapest":
+        elif "cheap" in selected_filter:
             routes = src.algorithms.find_routes_bellmanFord(
                 self.flight_graph,
                 start_airport,
                 end_airport,
-                mode=selected_filter,
+                mode="cheapest",
                 max_routes=max_routes
             )
 
-        if selected_filter == "fastest":
+        elif "fast" in selected_filter:
             routes = src.algorithms.find_routes_dijkstra(
                 self.flight_graph,
                 start_airport,
                 end_airport,
-                mode=selected_filter,
+                mode="fastest",
                 max_routes=max_routes
             )
 
-        if selected_filter == "fewest_stops":
+        elif "fewest" in selected_filter:
             # bfs
             routes = src.algorithms.find_route_least_connections(
                 self.flight_graph,
@@ -144,10 +159,6 @@ class SkyPathApi:
             if departure_date:
                 route_price = self._apply_weekend_multiplier(route_price, departure_date)
             
-            # For return trips, apply multipliers again (double the price)
-            if trip_type == "return" and departure_date:
-                route_price *= 2
-            
             serialised_routes.append(
                 {
                     "total_distance": route.distance_km,
@@ -167,12 +178,105 @@ class SkyPathApi:
                                 for carrier in (p.airlines or [])
                             ],
                             "cabin_class": cabin_class,
+                            "leg_index": 0,
                         }
                         for p in route.paths
                     ],
                 }
             )
         return {"ok": True, "error": None, "routes": serialised_routes}
+
+    def get_multicity_routes(self, itinerary, selected_filter, max_routes=4, cabin_class="economy"):
+        if not itinerary or len(itinerary) < 1:
+            return {"error": "Empty itinerary"}
+
+        segment_routes_list = []
+
+        for segment in itinerary:
+            src_code = segment.get("origin")
+            dest_code = segment.get("dest")
+            dep_date = segment.get("date")
+
+            if src_code not in self.flight_graph.airports or dest_code not in self.flight_graph.airports:
+                return {"error": f"Invalid airport code in segment: {src_code} -> {dest_code}"}
+            
+            start_airport = self.flight_graph.airports[src_code]
+            end_airport = self.flight_graph.airports[dest_code]
+
+            routes = None
+            if "shortest" in selected_filter:
+                routes = src.algorithms.find_routes_astar(self.flight_graph, start_airport, end_airport, max_routes=3)
+            elif "cheap" in selected_filter:
+                routes = src.algorithms.find_routes_bellmanFord(self.flight_graph, start_airport, end_airport, mode="cheapest", max_routes=3)
+            elif "fast" in selected_filter:
+                routes = src.algorithms.find_routes_dijkstra(self.flight_graph, start_airport, end_airport, mode="fastest", max_routes=3)
+            elif "fewest" in selected_filter:
+                routes = src.algorithms.find_route_least_connections(self.flight_graph, start_airport, end_airport, max_routes=3)
+            
+            if not routes:
+                return {"ok": True, "routes": []}
+            
+            segment_routes_list.append((routes, dep_date))
+
+        stitched_routes = []
+        
+        route_options_per_segment = [s[0] for s in segment_routes_list]
+        dep_dates_per_segment = [s[1] for s in segment_routes_list]
+
+        all_combinations = list(itertools.product(*route_options_per_segment))
+
+        for combo in all_combinations:
+            total_distance = sum(route.distance_km for route in combo)
+            total_duration = sum(route.duration_min for route in combo)
+            
+            total_price = 0.0
+            combined_paths = []
+            
+            for i, route in enumerate(combo):
+                dep_date = dep_dates_per_segment[i]
+                
+                segment_price = route.price
+                segment_price = self._apply_cabin_multiplier(segment_price, cabin_class)
+                if dep_date:
+                    segment_price = self._apply_weekend_multiplier(segment_price, dep_date)
+                
+                total_price += segment_price
+
+                for p in route.paths:
+                    path_price = self._apply_cabin_multiplier(p.price, cabin_class)
+                    if dep_date:
+                        path_price = self._apply_weekend_multiplier(path_price, dep_date)
+
+                    combined_paths.append({
+                        "source": p.source,
+                        "destination": p.destination,
+                        "distance_km": p.distance_km,
+                        "duration_min": p.duration_min,
+                        "price": path_price,
+                        "airlines": [{"iata": c.iata, "name": c.name} for c in (p.airlines or [])],
+                        "cabin_class": cabin_class,
+                        "leg_index": i,
+                    })
+
+            stitched_routes.append({
+                "total_distance": total_distance,
+                "total_time": total_duration,
+                "price": total_price,
+                "cabin_class": cabin_class,
+                "trip_type": "multicity",
+                "paths": combined_paths
+            })
+
+        if "shortest" in selected_filter:
+            stitched_routes.sort(key=lambda x: x["total_distance"])
+        elif "cheap" in selected_filter:
+            stitched_routes.sort(key=lambda x: x["price"])
+        elif "fast" in selected_filter:
+            stitched_routes.sort(key=lambda x: x["total_time"])
+        elif "fewest" in selected_filter:
+            stitched_routes.sort(key=lambda x: len(x["paths"]))
+
+        return {"ok": True, "error": None, "routes": stitched_routes[:max_routes]}
 
 
 if __name__ == "__main__":
