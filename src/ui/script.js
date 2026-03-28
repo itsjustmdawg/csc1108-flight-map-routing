@@ -692,7 +692,9 @@ function renderRouteDetails(routeIndex) {
 		if (hasNextSameLeg) {
 			html += `
 			<div class="layover-section">
-				Layover in ${path.destination}
+				<div class="strip-side left"></div>
+				<div class="layover-text">Layover in ${path.destination}</div>
+				<div class="strip-side right"></div>
 			</div>`;
 		}
 	});

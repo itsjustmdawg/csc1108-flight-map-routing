@@ -627,15 +627,19 @@ select {
 }
 
 .layover-section {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 8px 15px;
+	margin: 0;
+}
+
+.layover-text {
+	flex: 1;
 	text-align: center;
 	font-size: 10px;
-	color: #b45309;
+	color: navy;
 	font-weight: bold;
-	padding: 4px 0;
-	background: #fef3c7;
-	border-radius: 12px;
-	border: 1px dashed #fcd34d;
-	margin: 5px 30px 10px 30px;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
 }
