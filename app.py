@@ -136,42 +136,24 @@ class SkyPathApi:
 
         # a* with distance heuristic
         if "shortest" in selected_filter:
-            if preferred_carrier_iata:
-                routes = src.algorithms.find_routes_dijkstra(
-                    self.flight_graph,
-                    start_airport,
-                    end_airport,
-                    mode="shortest",
-                    max_routes=max_routes,
-                    preferred_carrier_iata=preferred_carrier_iata
-                )
-            else:
-                routes = src.algorithms.find_routes_astar(
-                    self.flight_graph,
-                    start_airport,
-                    end_airport,
-                    max_routes=max_routes
-                )
+            routes = src.algorithms.find_routes_astar(
+                self.flight_graph,
+                start_airport,
+                end_airport,
+                max_routes=max_routes,
+                preferred_carrier_iata=preferred_carrier_iata
+            )
 
         # bellman ford with price as weight
         elif "cheap" in selected_filter:
-            if preferred_carrier_iata:
-                routes = src.algorithms.find_routes_dijkstra(
-                    self.flight_graph,
-                    start_airport,
-                    end_airport,
-                    mode="cheapest",
-                    max_routes=max_routes,
-                    preferred_carrier_iata=preferred_carrier_iata
-                )
-            else:
-                routes = src.algorithms.find_routes_bellmanFord(
-                    self.flight_graph,
-                    start_airport,
-                    end_airport,
-                    mode="cheapest",
-                    max_routes=max_routes
-                )
+            routes = src.algorithms.find_routes_bellmanFord(
+                self.flight_graph,
+                start_airport,
+                end_airport,
+                mode="cheapest",
+                max_routes=max_routes,
+                preferred_carrier_iata=preferred_carrier_iata
+            )
 
         elif "fast" in selected_filter:
             routes = src.algorithms.find_routes_dijkstra(
@@ -184,11 +166,10 @@ class SkyPathApi:
             )
 
         elif "fewest" in selected_filter:
-            routes = src.algorithms.find_routes_dijkstra(
+            routes = src.algorithms.find_route_least_connections(
                 self.flight_graph,
                 start_airport,
                 end_airport,
-                mode="fewest_stops",
                 max_routes=max_routes,
                 preferred_carrier_iata=preferred_carrier_iata
             )
@@ -251,19 +232,13 @@ class SkyPathApi:
 
             routes = None
             if "shortest" in selected_filter:
-                if preferred_carrier_iata:
-                    routes = src.algorithms.find_routes_dijkstra(self.flight_graph, start_airport, end_airport, mode="shortest", max_routes=3, preferred_carrier_iata=preferred_carrier_iata)
-                else:
-                    routes = src.algorithms.find_routes_astar(self.flight_graph, start_airport, end_airport, max_routes=3)
+                routes = src.algorithms.find_routes_astar(self.flight_graph, start_airport, end_airport, max_routes=3, preferred_carrier_iata=preferred_carrier_iata)
             elif "cheap" in selected_filter:
-                if preferred_carrier_iata:
-                    routes = src.algorithms.find_routes_dijkstra(self.flight_graph, start_airport, end_airport, mode="cheapest", max_routes=3, preferred_carrier_iata=preferred_carrier_iata)
-                else:
-                    routes = src.algorithms.find_routes_bellmanFord(self.flight_graph, start_airport, end_airport, mode="cheapest", max_routes=3)
+                routes = src.algorithms.find_routes_bellmanFord(self.flight_graph, start_airport, end_airport, mode="cheapest", max_routes=3, preferred_carrier_iata=preferred_carrier_iata)
             elif "fast" in selected_filter:
                 routes = src.algorithms.find_routes_dijkstra(self.flight_graph, start_airport, end_airport, mode="fastest", max_routes=3, preferred_carrier_iata=preferred_carrier_iata)
             elif "fewest" in selected_filter:
-                routes = src.algorithms.find_routes_dijkstra(self.flight_graph, start_airport, end_airport, mode="fewest_stops", max_routes=3, preferred_carrier_iata=preferred_carrier_iata)
+                routes = src.algorithms.find_route_least_connections(self.flight_graph, start_airport, end_airport, max_routes=3, preferred_carrier_iata=preferred_carrier_iata)
             
             if not routes:
                 return {"ok": True, "routes": []}

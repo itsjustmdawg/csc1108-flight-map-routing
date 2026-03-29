@@ -5,7 +5,7 @@ from src.adt import FlightGraph, Airport, Route, Path
 from src.utils import calculate_haversine_distance
 
 # BFS
-def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end_airport: Airport, max_routes: int = 4) -> list[Route]:
+def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end_airport: Airport, max_routes: int = 4, preferred_carrier_iata: str = None) -> list[Route]:
     """
     Finds multiple route options with the fewest layovers between two airports using BFS.
 
@@ -14,6 +14,7 @@ def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end
     start_airport (Airport): The starting airport object.
     end_airport (Airport): The destination airport object.
     max_routes (int): Maximum number of alternative routes to return.
+    preferred_carrier_iata (str): Optional IATA code of the preferred airline.
 
     Returns:
         list[Route]: A list of route options from best (fewest stops) to less optimal.
@@ -71,6 +72,10 @@ def find_route_least_connections(graph: FlightGraph, start_airport: Airport, end
 
             # Assign route destination to local variable
             destination: str = path_obj.destination
+
+            if preferred_carrier_iata:
+                if not any(carrier.iata == preferred_carrier_iata for carrier in (path_obj.airlines or [])):
+                    continue
 
             # Cycle Prevention: don't revisit airports already in the current path
             if destination in current_path_iatas:
@@ -286,7 +291,7 @@ def find_routes_dijkstra(graph: FlightGraph, start_airport: Airport, end_airport
 
 
 # Blocked-edge version of Bellman-Ford
-def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest", blocked_edges = None) -> Route | None:
+def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iata: str, mode="shortest", blocked_edges = None, preferred_carrier_iata: str = None) -> Route | None:
     """
     Finds the optimal route between two airports using the Bellman-Ford algorithm
     while ignoring blocked edges. (new algorithm)
@@ -296,6 +301,7 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
     start_iata  (str): The 3-letter IATA code of the starting airport.
     end_iata    (str): The 3-letter IATA code of the destination airport.
     mode        (str): "shortest" for distance, "fastest" for duration, "cheapest" for price
+    preferred_carrier_iata (str): Optional IATA code of the preferred airline.
 
     Returns:
     Route: A Route object representing the optimal path, or None if no path exists. 
@@ -335,6 +341,10 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
                 if (path.source, path.destination) in blocked_edges:
                     continue
 
+                if preferred_carrier_iata:
+                    if not any(carrier.iata == preferred_carrier_iata for carrier in (path.airlines or [])):
+                        continue
+
                 neighbour = path.destination
 
                 # Determine edge weight based on selected mode
@@ -370,6 +380,10 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
             if (path.source, path.destination) in blocked_edges:
                 continue
 
+            if preferred_carrier_iata:
+                if not any(carrier.iata == preferred_carrier_iata for carrier in (path.airlines or [])):
+                    continue
+
             neighbour = path.destination
 
             if mode == "shortest":
@@ -392,7 +406,7 @@ def _find_route_bellmanFord_blocked(graph: FlightGraph, start_iata: str, end_iat
     return _reconstruct_path(prev_path, start_iata, end_iata)
 
 # Bellman-Ford: returns multiple routes
-def find_routes_bellmanFord(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode="shortest", max_routes: int = 4) -> list[Route]:
+def find_routes_bellmanFord(graph: FlightGraph, start_airport: Airport, end_airport: Airport, mode="shortest", max_routes: int = 4, preferred_carrier_iata: str = None) -> list[Route]:
     """
     Finds multiple optimal route between two airports using the Bellman-Ford algorithm.
 
@@ -401,6 +415,7 @@ def find_routes_bellmanFord(graph: FlightGraph, start_airport: Airport, end_airp
     start_iata  (str): The 3-letter IATA code of the starting airport.
     end_iata    (str): The 3-letter IATA code of the destination airport.
     mode        (str): "shortest" for distance, "fastest" for duration, "cheapest" for price
+    preferred_carrier_iata (str): Optional IATA code of the preferred airline.
 
     Returns:
     list[Route]: A list of route options from best to less optimal. 
@@ -417,7 +432,8 @@ def find_routes_bellmanFord(graph: FlightGraph, start_airport: Airport, end_airp
             start_iata,
             end_iata,
             mode=mode,
-            blocked_edges=blocked_edges
+            blocked_edges=blocked_edges,
+            preferred_carrier_iata=preferred_carrier_iata
         )
         # Stop when no more routes can be found
         if route is None:
@@ -453,7 +469,7 @@ def find_routes_bellmanFord(graph: FlightGraph, start_airport: Airport, end_airp
     return routes
 
 # A* Algorithm: return multiple routes using k-Shortest Path A*
-def find_routes_astar(graph: FlightGraph, start_airport: Airport, end_airport: Airport, max_routes: int = 4) -> list[Route]:
+def find_routes_astar(graph: FlightGraph, start_airport: Airport, end_airport: Airport, max_routes: int = 4, preferred_carrier_iata: str = None) -> list[Route]:
     """
     Finds multiple route options between two airports using the k-Shortest Path A* algorithm.
     This runs a single continuous A* search, allowing multiple visits to airports 
@@ -513,6 +529,10 @@ def find_routes_astar(graph: FlightGraph, start_airport: Airport, end_airport: A
 
         # Explore all valid flight paths (neighbors) from the current airport
         for path in graph.get_neighbours(current_iata):
+            if preferred_carrier_iata:
+                if not any(carrier.iata == preferred_carrier_iata for carrier in (path.airlines or [])):
+                    continue
+
             neighbor_iata = path.destination
 
             # Cycle Prevention: don't revisit airports already in the current path
