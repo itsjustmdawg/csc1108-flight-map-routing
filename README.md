@@ -17,28 +17,57 @@ flight-routing-project/
 └── requirements.txt
 ```
 
-## Prerequisites
+## Installation
 
-1. Install **Python 3.10+** and make sure `python` and `pip` are available in your terminal.
-2. Install the **pre-release** version of `pythonnet`:
+1. Install **Python 3.10 or later** and make sure `python` and `pip` are available in your terminal.
+
+2. Create a virtual environment:
 
   ```bash
-  pip install --pre pythonnet
+  python -m venv .venv
   ```
 
-3. Install **pywebview**:
+3. Activate the virtual environment:
+
+  Windows (PowerShell):
+
+  ```powershell
+  .\.venv\Scripts\Activate.ps1
+  ```
+
+  Windows (Command Prompt):
+
+  ```bat
+  .\.venv\Scripts\activate.bat
+  ```
+
+  macOS / Linux:
+
+  ```bash
+  source .venv/bin/activate
+  ```
+
+4. Install the required dependency:
 
   ```bash
   pip install pywebview
   ```
 
-  If your system uses `pip3`, use:
+5. Start the application:
 
   ```bash
-  pip3 install pywebview
+  python app.py
   ```
 
-## How to Use This Repo
+### Alternative Windows Setup
+
+If you are using the packaged Windows build, you can also run:
+
+```bash
+python launcher.py
+```
+
+This will create `.venv` automatically, install `pywebview`, and launch the app. A packaged `Setup.exe` is also included in the repository for the same setup flow.`r`n`r`n## How to Use This Repo
 
 1. Clone the repo using HTTPS:
 
@@ -102,3 +131,5 @@ flight-routing-project/
 
 1. Keep commits small and focused. Even small changes (3-4 lines) can be a good commit.
 2. Keep branches focused on one task. Break large work into smaller branches where possible.
+
+
