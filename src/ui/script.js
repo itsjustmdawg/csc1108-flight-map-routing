@@ -1408,6 +1408,14 @@ if (exploreModeToggle) {
 				destWrapper.style.pointerEvents = "none";
 			}
 			destinationInput.disabled = true;
+			
+			destinationInput.value = "";
+			destinationInput.dataset.airportCode = "";
+			destinationInput.dataset.autoCompleted = "false";
+			hideOptions(destinationOptions);
+			const destClearBtn = destinationContainer.querySelector(".dropdown-clear");
+			if (destClearBtn) destClearBtn.hidden = true;
+			
 			if (swapWrapper) swapWrapper.style.opacity = "0.5";
 			if (budgetWrapper) budgetWrapper.style.display = "block";
 			tripTypeSelect.value = "oneway";
