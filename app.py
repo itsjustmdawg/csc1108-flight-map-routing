@@ -24,6 +24,30 @@ class SkyPathApi:
         except FileNotFoundError:
             return {"cabin_classes": {}, "airlines": {}}
 
+    def get_airlines(self):
+        airlines = {}
+        for paths in self.flight_graph.adjacency.values():
+            for path in paths:
+                for carrier in (path.airlines or []):
+                    if carrier.iata not in airlines:
+                        # Determine supported classes based on airlines config
+                        supported_classes = ["economy"]
+                        if self.airlines_config and "airlines" in self.airlines_config:
+                            for category in ["4class", "2class", "1class"]:
+                                cat_data = self.airlines_config["airlines"].get(category, {})
+                                if carrier.iata in cat_data.get("airlines", []):
+                                    supported_classes = cat_data.get("multiplier_strategy", ["economy"])
+                                    break
+                                    
+                        airlines[carrier.iata] = {
+                            "name": carrier.name,
+                            "classes": supported_classes
+                        }
+        
+        result = [{"iata": iata, "name": data["name"], "classes": data["classes"]} for iata, data in airlines.items()]
+        result.sort(key=lambda x: x["name"])
+        return result
+
     def get_airports(self):
 
         with open(self.data_path, "r", encoding="utf-8") as file:
@@ -78,7 +102,7 @@ class SkyPathApi:
             return price * 1.2
         return price
 
-    def get_routes(self, src_code, dest_code, selected_filter, max_routes=4, cabin_class="economy", trip_type="oneway", departure_date=None, return_date=None):
+    def get_routes(self, src_code, dest_code, selected_filter, max_routes=4, cabin_class="economy", trip_type="oneway", departure_date=None, return_date=None, preferred_carrier_iata=None):
         if not src_code or not dest_code:
             return {"error": "Source and destination codes are required."}
 
@@ -91,7 +115,7 @@ class SkyPathApi:
                 {"origin": src_code, "dest": dest_code, "date": departure_date},
                 {"origin": dest_code, "dest": src_code, "date": return_date}
             ]
-            result = self.get_multicity_routes(itinerary, selected_filter, max_routes, cabin_class)
+            result = self.get_multicity_routes(itinerary, selected_filter, max_routes, cabin_class, preferred_carrier_iata)
             
             # Ensure UI still recognizes this as a 'return' trip for title display
             if result.get("ok") and result.get("routes"):
@@ -116,7 +140,8 @@ class SkyPathApi:
                 self.flight_graph,
                 start_airport,
                 end_airport,
-                max_routes=max_routes
+                max_routes=max_routes,
+                preferred_carrier_iata=preferred_carrier_iata
             )
 
         # bellman ford with price as weight
@@ -126,7 +151,8 @@ class SkyPathApi:
                 start_airport,
                 end_airport,
                 mode="cheapest",
-                max_routes=max_routes
+                max_routes=max_routes,
+                preferred_carrier_iata=preferred_carrier_iata
             )
 
         elif "fast" in selected_filter:
@@ -135,16 +161,17 @@ class SkyPathApi:
                 start_airport,
                 end_airport,
                 mode="fastest",
-                max_routes=max_routes
+                max_routes=max_routes,
+                preferred_carrier_iata=preferred_carrier_iata
             )
 
         elif "fewest" in selected_filter:
-            # bfs
             routes = src.algorithms.find_route_least_connections(
                 self.flight_graph,
                 start_airport,
                 end_airport,
-                max_routes=max_routes
+                max_routes=max_routes,
+                preferred_carrier_iata=preferred_carrier_iata
             )
 
         # Handle case where no routes are found
@@ -186,7 +213,7 @@ class SkyPathApi:
             )
         return {"ok": True, "error": None, "routes": serialised_routes}
 
-    def get_multicity_routes(self, itinerary, selected_filter, max_routes=4, cabin_class="economy"):
+    def get_multicity_routes(self, itinerary, selected_filter, max_routes=4, cabin_class="economy", preferred_carrier_iata=None):
         if not itinerary or len(itinerary) < 1:
             return {"error": "Empty itinerary"}
 
@@ -205,13 +232,13 @@ class SkyPathApi:
 
             routes = None
             if "shortest" in selected_filter:
-                routes = src.algorithms.find_routes_astar(self.flight_graph, start_airport, end_airport, max_routes=3)
+                routes = src.algorithms.find_routes_astar(self.flight_graph, start_airport, end_airport, max_routes=3, preferred_carrier_iata=preferred_carrier_iata)
             elif "cheap" in selected_filter:
-                routes = src.algorithms.find_routes_bellmanFord(self.flight_graph, start_airport, end_airport, mode="cheapest", max_routes=3)
+                routes = src.algorithms.find_routes_bellmanFord(self.flight_graph, start_airport, end_airport, mode="cheapest", max_routes=3, preferred_carrier_iata=preferred_carrier_iata)
             elif "fast" in selected_filter:
-                routes = src.algorithms.find_routes_dijkstra(self.flight_graph, start_airport, end_airport, mode="fastest", max_routes=3)
+                routes = src.algorithms.find_routes_dijkstra(self.flight_graph, start_airport, end_airport, mode="fastest", max_routes=3, preferred_carrier_iata=preferred_carrier_iata)
             elif "fewest" in selected_filter:
-                routes = src.algorithms.find_route_least_connections(self.flight_graph, start_airport, end_airport, max_routes=3)
+                routes = src.algorithms.find_route_least_connections(self.flight_graph, start_airport, end_airport, max_routes=3, preferred_carrier_iata=preferred_carrier_iata)
             
             if not routes:
                 return {"ok": True, "routes": []}
@@ -277,6 +304,20 @@ class SkyPathApi:
             stitched_routes.sort(key=lambda x: len(x["paths"]))
 
         return {"ok": True, "error": None, "routes": stitched_routes[:max_routes]}
+
+    def get_reachable_airports(self, src_code, budget, cabin_class="economy", preferred_carrier_iata=None):
+        try:
+            budget = float(budget)
+        except ValueError:
+            return {"error": "Invalid budget"}
+            
+        if src_code not in self.flight_graph.airports:
+            return {"error": f"Source airport '{src_code}' not found."}
+            
+        cabin_multiplier = self._apply_cabin_multiplier(1.0, cabin_class)
+            
+        reachable = src.algorithms.find_reachable_airports(self.flight_graph, src_code, budget, preferred_carrier_iata, cabin_multiplier)
+        return {"ok": True, "reachable": reachable}
 
 
 if __name__ == "__main__":
